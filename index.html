@@ -6,11 +6,10 @@
 <title>即時雙語字幕</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
 <style>
   :root {
     --bg: #0d0d0f; --bg2: #16161a; --bg3: #1e1e24; --border: #2a2a35;
-    --amber: #f59e0b; --amber-dim: #92610a; --green: #22c55e;
+    --amber: #f59e0b; --amber-dim: #92610a; --green: #22c55e; --red: #ef4444;
     --text: #e2e2e8; --text-dim: #6b7280; --text-mid: #9ca3af;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,6 +35,9 @@
   .tip { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 16px 18px; font-size: 13px; color: var(--text-mid); line-height: 1.8; }
   .tip strong { color: var(--amber); }
   .tip a { color: var(--amber); }
+
+  .err-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 14px 18px; font-size: 13px; color: #fca5a5; line-height: 1.7; display: none; }
+  .err-box.show { display: block; }
 
   .subtitle-area {
     background: #000; border-radius: 14px; padding: 36px 40px 32px;
@@ -69,12 +71,6 @@
   .btn-mp3 { padding: 16px 20px; background: rgba(34,197,94,0.08); color: var(--green); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: none; }
   .btn-mp3:hover:not(:disabled) { background: rgba(34,197,94,0.15); }
   .btn-mp3:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .mp3-progress-wrap { display: none; flex-direction: column; gap: 8px; }
-  .mp3-progress-wrap.visible { display: flex; }
-  .mp3-progress-label { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
-  .mp3-progress-bar { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
-  .mp3-progress-fill { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.2s; width: 0%; }
 
   .log-header { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 12px; padding: 0 12px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
   .log-header span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -116,7 +112,7 @@
 <header>
   <div class="logo-icon">🎬</div>
   <h1>即時雙語字幕</h1>
-  <span>Live Transcript v1.1</span>
+  <span>Live Transcript v1.2</span>
 </header>
 
 <main>
@@ -132,7 +128,7 @@
       <button class="source-btn active" id="src-mic" onclick="selectSource('mic')">
         <div class="src-icon">🎙️</div>
         <div class="src-name">麥克風</div>
-        <div class="src-desc">實體會議、錄音筆旁收音，直接授權麥克風即可</div>
+        <div class="src-desc">實體會議、對著 iPad 麥克風說話，或收環境聲音</div>
       </button>
       <button class="source-btn" id="src-both" onclick="selectSource('both')">
         <div class="src-icon">🖥️＋🎙️</div>
@@ -141,9 +137,11 @@
       </button>
     </div>
     <div class="tip" id="sourceTip" style="margin-top:14px;">
-      <strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器會請求麥克風權限，允許即可。無需分享螢幕。本工具不需 Netlify，存到桌面用 Chrome 直接開即可。
+      <strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。iPad / iPhone Safari 支援。
     </div>
   </div>
+
+  <div id="errBox" class="err-box"></div>
 
   <div class="subtitle-area">
     <div class="timer" id="timer">00:00</div>
@@ -159,7 +157,7 @@
     <button class="btn-start" id="btnStart" onclick="startCapture()">▶ 開始錄製</button>
     <button class="btn-stop"  id="btnStop"  onclick="stopCapture()">⏹ 停止</button>
     <button class="btn-dl"    id="btnDl"    onclick="downloadTxt()" disabled>📥 下載 .txt</button>
-    <button class="btn-mp3"   id="btnMp3"   onclick="downloadWebm()" style="display:none">🎙️ 下載 WebM</button>
+    <button class="btn-mp3"   id="btnMp3"   onclick="downloadAudio()" style="display:none">🎙️ 下載錄音</button>
   </div>
 
   <div class="card">
@@ -198,12 +196,12 @@
     </div>
 
     <div>
-      <div class="card-title" style="font-size:11px;margin-bottom:8px;">同時錄製 WebM 音訊</div>
+      <div class="card-title" style="font-size:11px;margin-bottom:8px;">同時錄製完整音訊</div>
       <div class="mp3-toggle-row" id="mp3ToggleRow" onclick="toggleMp3()">
         <div class="toggle-switch" id="mp3Switch"></div>
         <div class="mp3-toggle-text">
           <strong id="mp3ToggleLabel">關閉 — 只做逐字稿</strong>
-          <span id="mp3ToggleDesc">開啟後，會議期間同時在本機錄製完整音訊。停止後點「下載 WebM」，直接下載，不需編碼，不額外上傳任何音訊。</span>
+          <span id="mp3ToggleDesc">開啟後會議期間同時在本機錄製完整音訊，停止後可下載。</span>
         </div>
       </div>
     </div>
@@ -211,10 +209,10 @@
 
 </main>
 
-<footer>音訊傳送至 OpenAI Whisper 轉錄 · 翻譯由 GPT-4o-mini 處理 · WebM 錄音僅存在本機</footer>
+<footer>音訊傳送至 OpenAI Whisper 轉錄 · 翻譯由 GPT-4o-mini 處理 · 錄音僅存本機</footer>
 
 <script>
-// ── Key ──────────────────────────────────────────────────────
+// ── Key ───────────────────────────────────────────────────────
 function getKey() { return localStorage.getItem('live_openai_key') || ''; }
 function saveKey() {
   const v = document.getElementById('inputOpenaiKey').value.trim();
@@ -228,12 +226,22 @@ function saveKey() {
   if (k) document.getElementById('inputOpenaiKey').value = k;
 })();
 
+// ── Error display ─────────────────────────────────────────────
+function showErr(msg) {
+  const b = document.getElementById('errBox');
+  b.textContent = '⚠️ ' + msg;
+  b.classList.add('show');
+}
+function clearErr() {
+  document.getElementById('errBox').classList.remove('show');
+}
+
 // ── Source selector ───────────────────────────────────────────
 let audioSource = 'mic';
 const tipTexts = {
-  screen: '<strong>🖥️ 電腦聲音模式：</strong>點「開始錄製」後 Chrome 會請你選分享視窗，選 Teams 或整個螢幕，並勾選底部「<strong>也分享音訊 / Share audio</strong>」。<br>⚠️ Windows 直接可用；Mac 需先安裝 <a href="https://existential.audio/blackhole/" target="_blank">BlackHole</a> 虛擬音效卡。',
-  mic:    '<strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。適合實體會議或把 iPad 喇叭對著桌電麥克風收音。',
-  both:   '<strong>🖥️＋🎙️ 混合模式：</strong>同時收電腦聲音（Teams 對方）和麥克風（你說話）。Chrome 先請你選分享視窗並勾選「也分享音訊」，再自動取得麥克風，兩路混音後一起辨識。'
+  screen: '<strong>🖥️ 電腦聲音模式：</strong>點「開始錄製」後 Chrome 會請你選分享視窗，勾選底部「也分享音訊 / Share audio」。<br>⚠️ iOS Safari 不支援此模式，請改用麥克風。',
+  mic:    '<strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。iPad / iPhone Safari 支援。',
+  both:   '<strong>🖥️＋🎙️ 混合模式：</strong>同時收電腦聲音和麥克風。<br>⚠️ iOS Safari 不支援此模式，請改用麥克風。'
 };
 function selectSource(src) {
   audioSource = src;
@@ -246,10 +254,7 @@ let recordMp3 = false;
 function toggleMp3() {
   recordMp3 = !recordMp3;
   document.getElementById('mp3ToggleRow').classList.toggle('on', recordMp3);
-  document.getElementById('mp3ToggleLabel').textContent = recordMp3 ? '開啟 — 同時錄製 WebM' : '關閉 — 只做逐字稿';
-  document.getElementById('mp3ToggleDesc').textContent  = recordMp3
-    ? '會議結束後點「下載 WebM」，瀏覽器直接下載，不需編碼，不額外上傳任何音訊。'
-    : '開啟後，會議期間同時在本機錄製完整音訊。停止後點「下載 WebM」，直接下載，不需編碼，不額外上傳任何音訊。';
+  document.getElementById('mp3ToggleLabel').textContent = recordMp3 ? '開啟 — 同時錄製音訊' : '關閉 — 只做逐字稿';
 }
 
 // ── Segment length ────────────────────────────────────────────
@@ -268,6 +273,7 @@ let fullRecorder  = null;
 let fullChunks    = [];
 let isRecording   = false;
 let segmentTimer  = null;
+let dataInterval  = null;
 let startTime     = null;
 let segmentStart  = null;
 let timerInterval = null;
@@ -316,27 +322,38 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 
 // ── MIME helpers ──────────────────────────────────────────────
 function bestMime() {
-  const c = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
-  return c.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  if (typeof MediaRecorder === 'undefined') return '';
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  for (const t of candidates) {
+    try { if (MediaRecorder.isTypeSupported(t)) return t; } catch(e) {}
+  }
+  // Safari fallback: isTypeSupported may lie, try audio/mp4 anyway
+  return 'audio/mp4';
 }
 function mimeExt(mime) {
   if (!mime) return 'webm';
   if (mime.includes('ogg')) return 'ogg';
-  if (mime.includes('mp4')) return 'mp4';
+  if (mime.includes('mp4')) return 'm4a';
   return 'webm';
 }
 
 // ── Start capture ─────────────────────────────────────────────
 async function startCapture() {
+  clearErr();
   const key = getKey();
-  if (!key) { alert('請先在下方填入 OpenAI API Key 並按「儲存」。'); return; }
+  if (!key) { showErr('請先在下方填入 OpenAI API Key 並按「儲存」。'); return; }
+
+  if (typeof MediaRecorder === 'undefined') {
+    showErr('此裝置不支援錄音。請更新 iOS 至 14.3 以上版本，或改用 Chrome。');
+    return;
+  }
 
   try {
     let tracks = [];
 
     if (audioSource === 'mic' || audioSource === 'both') {
       const mic = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
+        audio: { echoCancellation: true, noiseSuppression: true }
       });
       tracks = tracks.concat(mic.getAudioTracks());
     }
@@ -344,11 +361,11 @@ async function startCapture() {
     if (audioSource === 'screen' || audioSource === 'both') {
       const scr = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal:1, max:1 }, width:1, height:1 },
-        audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 16000 }
+        audio: true
       });
       scr.getVideoTracks().forEach(t => t.stop());
       if (!scr.getAudioTracks().length) {
-        alert('沒有偵測到音訊！\n請確認分享畫面時，底部有勾選「也分享音訊（Share audio）」。');
+        showErr('沒有偵測到音訊！請確認分享畫面時，底部有勾選「也分享音訊（Share audio）」。');
         scr.getTracks().forEach(t => t.stop());
         tracks.forEach(t => t.stop());
         return;
@@ -358,7 +375,7 @@ async function startCapture() {
     }
 
     if (audioSource === 'both' && tracks.length >= 2) {
-      const ctx  = new AudioContext({ sampleRate: 16000 });
+      const ctx  = new AudioContext();
       const dest = ctx.createMediaStreamDestination();
       tracks.forEach(t => ctx.createMediaStreamSource(new MediaStream([t])).connect(dest));
       mediaStream = dest.stream;
@@ -383,16 +400,24 @@ async function startCapture() {
 
     if (recordMp3) {
       const mime = bestMime();
-      fullRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+      try {
+        fullRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+      } catch(e) {
+        fullRecorder = new MediaRecorder(mediaStream);
+      }
       fullRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) fullChunks.push(e.data); };
-      fullRecorder.start(500);
+      fullRecorder.start();
     }
 
     launchSegment();
 
   } catch (e) {
-    if (e.name === 'NotAllowedError') alert('需要權限。\n麥克風或螢幕分享遭拒，請點選允許後再試。');
-    else alert('啟動失敗：' + e.message);
+    isRecording = false;
+    if (e.name === 'NotAllowedError') {
+      showErr('麥克風權限遭拒。請在瀏覽器設定中允許此網站使用麥克風。');
+    } else {
+      showErr('啟動失敗：' + e.message);
+    }
   }
 }
 
@@ -401,30 +426,59 @@ function launchSegment() {
   if (!isRecording) return;
   audioChunks  = [];
   segmentStart = Date.now() - startTime;
+
   const mime = bestMime();
-  mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+  try {
+    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+  } catch(e) {
+    try {
+      mediaRecorder = new MediaRecorder(mediaStream);
+    } catch(e2) {
+      showErr('錄音器建立失敗：' + e2.message);
+      stopCapture();
+      return;
+    }
+  }
+
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
   mediaRecorder.onstop = () => {
-    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+    clearInterval(dataInterval);
+    const mimeType = mediaRecorder.mimeType || mime || 'audio/mp4';
+    const blob = new Blob(audioChunks, { type: mimeType });
     const at   = segmentStart;
     processSegment(blob, at).finally(() => { if (isRecording) launchSegment(); });
   };
-  mediaRecorder.start(300);
+  mediaRecorder.onerror = e => {
+    showErr('錄音錯誤：' + (e.error?.message || '未知錯誤'));
+  };
+
+  // start() without timeslice — more compatible with Safari
+  mediaRecorder.start();
+
+  // requestData() polling as fallback for browsers that need it
+  dataInterval = setInterval(() => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try { mediaRecorder.requestData(); } catch(e) {}
+    }
+  }, 500);
+
   segmentTimer = setTimeout(() => {
+    clearInterval(dataInterval);
     if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
   }, SEGMENT_MS);
 }
 
 // ── Process one segment ───────────────────────────────────────
 async function processSegment(blob, elapsedAtStart) {
-  if (blob.size < 4000) return;
+  if (blob.size < 1000) return;
   setStatus('proc', '辨識中…');
   try {
     const key = getKey();
-    const ext = mimeExt(blob.type);
+    const ext = mimeExt(blob.type || bestMime());
+    const audioFile = new File([blob], `seg.${ext}`, { type: blob.type || 'audio/mp4' });
 
     const form = new FormData();
-    form.append('file', blob, `seg.${ext}`);
+    form.append('file', audioFile);
     form.append('model', 'whisper-1');
     form.append('prompt', 'This is an international meeting. Transcribe faithfully, preserving English technical terms.');
 
@@ -434,9 +488,11 @@ async function processSegment(blob, elapsedAtStart) {
       body: form
     });
     if (!wRes.ok) {
-      if (wRes.status === 400) { setStatus('rec','錄製中'); return; }
       const err = await wRes.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Whisper ${wRes.status}`);
+      const msg = err?.error?.message || `Whisper API 錯誤 ${wRes.status}`;
+      if (wRes.status !== 400) showErr(msg);
+      setStatus('rec','錄製中');
+      return;
     }
     const { text } = await wRes.json();
     const en = text.trim();
@@ -463,7 +519,7 @@ async function processSegment(blob, elapsedAtStart) {
     setSubtitle(en, zh || '（翻譯失敗）', false);
     addLogRow(elapsedAtStart, en, zh);
   } catch (e) {
-    console.error('[processSegment]', e.message);
+    showErr('處理錯誤：' + e.message);
   }
   if (isRecording) setStatus('rec', '錄製中');
 }
@@ -473,6 +529,7 @@ function stopCapture() {
   if (!isRecording) return;
   isRecording = false;
   clearTimeout(segmentTimer);
+  clearInterval(dataInterval);
   stopTimer();
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   if (fullRecorder  && fullRecorder.state  !== 'inactive') fullRecorder.stop();
@@ -489,10 +546,10 @@ function stopCapture() {
   document.getElementById('subtitleZh').classList.add('subtitle-dim');
 }
 
-// ── Download WebM ─────────────────────────────────────────────
-function downloadWebm() {
+// ── Download audio ────────────────────────────────────────────
+function downloadAudio() {
   if (!fullChunks.length) return;
-  const mime = (fullChunks[0] && fullChunks[0].type) ? fullChunks[0].type : 'audio/webm';
+  const mime = fullRecorder?.mimeType || bestMime() || 'audio/mp4';
   const blob = new Blob(fullChunks, { type: mime });
   const ext  = mimeExt(mime);
   const date = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g,'-');
