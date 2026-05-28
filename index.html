@@ -12,7 +12,6 @@
     font-family: 'Noto Sans TC', sans-serif;
     height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
   }
-
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 20px; background: #111; border-bottom: 1px solid #1e1e1e; flex-shrink: 0;
@@ -31,25 +30,22 @@
   }
   .rec-badge.show { display: inline; }
   .btn-gear { background: none; border: none; color: #555; font-size: 22px; cursor: pointer; padding: 4px 0 4px 8px; }
-
   .subtitle-wrap {
     flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
     padding: 24px 20px 20px; gap: 10px; overflow: hidden;
   }
   .prev-en { font-size: 17px; line-height: 1.6; color: #3a3a3a; font-weight: 300; min-height: 1em; }
   .prev-zh { font-size: 15px; line-height: 1.6; color: #2a2a2a; font-weight: 300; min-height: 1em; }
-  .cur-en  { font-size: 26px; line-height: 1.55; color: #fff; font-weight: 400; min-height: 1.5em; transition: opacity .2s; }
+  .cur-en  { font-size: 26px; line-height: 1.55; color: #fff; font-weight: 400; min-height: 1.5em; transition: opacity .15s; }
   .cur-zh  { font-size: 23px; line-height: 1.55; color: #f59e0b; font-weight: 400; min-height: 1.4em; }
-  .interim { opacity: 0.45 !important; }
+  .interim { opacity: 0.4 !important; }
   .placeholder { color: #222 !important; }
-
   .err-bar {
     display: none; flex-shrink: 0;
     background: rgba(239,68,68,0.12); border-top: 1px solid rgba(239,68,68,0.25);
     padding: 12px 20px; font-size: 13px; color: #fca5a5; line-height: 1.5;
   }
   .err-bar.show { display: block; }
-
   .audio-wrap {
     display: none; flex-shrink: 0;
     background: #0d1a0d; border-top: 1px solid rgba(34,197,94,0.2);
@@ -59,7 +55,6 @@
   .audio-label { font-size: 12px; color: #22c55e; font-weight: 600; }
   .audio-hint  { font-size: 11px; color: #4a6a4a; line-height: 1.5; }
   audio { width: 100%; height: 40px; border-radius: 8px; }
-
   .controls {
     display: flex; gap: 10px; padding: 14px 20px 20px;
     background: #0a0a0a; border-top: 1px solid #1a1a1a;
@@ -79,7 +74,6 @@
   }
   .btn-sm:disabled { opacity: 0.3; cursor: default; }
   .btn-sm.green { border-color: rgba(34,197,94,0.4); color: #22c55e; background: rgba(34,197,94,0.06); }
-
   .overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.82); z-index: 100; align-items: flex-end;
@@ -109,8 +103,7 @@
   .lang-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .lang-btn {
     padding: 10px 18px; border: 1px solid #2a2a2a; border-radius: 8px;
-    background: #1a1a1a; color: #777; font-size: 13px;
-    cursor: pointer; font-family: inherit;
+    background: #1a1a1a; color: #777; font-size: 13px; cursor: pointer; font-family: inherit;
   }
   .lang-btn.active { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
   .rec-toggle {
@@ -125,8 +118,7 @@
   }
   .toggle-sw::after {
     content:''; position: absolute; top: 3px; left: 3px;
-    width: 16px; height: 16px; background: #fff; border-radius: 50%;
-    transition: transform .2s;
+    width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform .2s;
   }
   .rec-toggle.on .toggle-sw { background: #22c55e; }
   .rec-toggle.on .toggle-sw::after { transform: translateX(18px); }
@@ -178,14 +170,12 @@
 <div class="overlay" id="overlay" onclick="overlayClick(event)">
   <div class="sheet">
     <div class="handle"></div>
-
     <div>
       <div class="s-label">OpenAI API Key <span style="color:#f59e0b;font-size:10px;letter-spacing:0;text-transform:none;">存於瀏覽器，不上傳</span></div>
       <input class="s-input" type="password" id="keyInput" placeholder="sk-...">
       <button class="btn-save-key" onclick="saveKey()">儲存 Key</button>
       <div class="save-ok" id="saveOk">✓ 已儲存</div>
     </div>
-
     <div>
       <div class="s-label">辨識語言</div>
       <div class="lang-row">
@@ -194,9 +184,8 @@
         <button class="lang-btn" onclick="setLang('zh-TW',this)">中文</button>
         <button class="lang-btn" onclick="setLang('ko-KR',this)">韓文</button>
       </div>
-      <div class="s-note" style="margin-top:8px;">辨識由瀏覽器即時處理，幾乎零延遲。翻譯需 1-2 秒（GPT）。</div>
+      <div class="s-note" style="margin-top:8px;">辨識由瀏覽器即時處理，翻譯需 1-2 秒（GPT）。</div>
     </div>
-
     <div>
       <div class="s-label">同時錄音</div>
       <div class="rec-toggle" id="recToggle" onclick="toggleRec()">
@@ -207,7 +196,6 @@
         </div>
       </div>
     </div>
-
     <button class="btn-close" onclick="closeSettings()">完成</button>
   </div>
 </div>
@@ -262,7 +250,7 @@ function setStatus(type, text) {
   s.style.color = type==='rec'?'#ef4444':type==='proc'?'#f59e0b':'#555';
 }
 
-// ── MIME / Audio helpers ──────────────────────────────────────
+// ── MIME helpers ──────────────────────────────────────────────
 function bestMime() {
   if (typeof MediaRecorder === 'undefined') return '';
   const list = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
@@ -277,12 +265,15 @@ function mimeExt(mime) {
 }
 
 // ── State ─────────────────────────────────────────────────────
-let recognition = null;
-let mediaStream = null, fullRecorder = null, fullChunks = [], fullMime = '';
-let isRecording = false;
-let pendingFinal = '', translateTimer = null;
+let recognition   = null;
+let mediaStream   = null, fullRecorder = null, fullChunks = [], fullMime = '';
+let isRecording   = false;
+let pendingFinal  = '', translateTimer = null;
 let lastEn = '', lastZh = '';
 let startTime = null, logEntries = [];
+
+// ── Session ID: prevents stale async callbacks ────────────────
+let sessionId = 0;
 
 // ── Start ─────────────────────────────────────────────────────
 async function startCapture() {
@@ -294,6 +285,14 @@ async function startCapture() {
   if (!SR) { showErr('此裝置不支援語音辨識 API。請使用 iOS 14.5+ 或 Chrome。'); return; }
   if (!getKey()) { openSettings(); showErr('請先填入 OpenAI API Key。'); return; }
 
+  // Bump session — invalidates all callbacks from previous session
+  sessionId++;
+  const mySession = sessionId;
+
+  pendingFinal = '';
+  lastEn = ''; lastZh = '';
+  logEntries = [];
+
   // Start recording if enabled
   if (doRecord) {
     try {
@@ -301,8 +300,11 @@ async function startCapture() {
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
       });
       fullMime = bestMime();
-      try { fullRecorder = new MediaRecorder(mediaStream, fullMime ? { mimeType: fullMime, audioBitsPerSecond: 128000 } : {}); }
-      catch(e) { fullRecorder = new MediaRecorder(mediaStream); fullMime = ''; }
+      try {
+        fullRecorder = new MediaRecorder(mediaStream, fullMime ? { mimeType: fullMime, audioBitsPerSecond: 128000 } : {});
+      } catch(e) {
+        fullRecorder = new MediaRecorder(mediaStream); fullMime = '';
+      }
       fullRecorder.ondataavailable = e => { if (e.data?.size > 0) fullChunks.push(e.data); };
       fullChunks = [];
       fullRecorder.start(1000);
@@ -320,15 +322,30 @@ async function startCapture() {
   recognition.lang = srLang;
   recognition.maxAlternatives = 1;
 
-  recognition.onresult = handleResult;
+  // Capture session ID and recognition instance for this session's callbacks
+  const myRecognition = recognition;
+
+  recognition.onresult = (event) => {
+    if (sessionId !== mySession) return; // stale session, ignore
+    handleResult(event, mySession);
+  };
+
   recognition.onerror = (e) => {
+    if (sessionId !== mySession) return;
     if (e.error === 'no-speech') return;
     if (e.error === 'not-allowed') { showErr('麥克風權限遭拒。'); stopCapture(); return; }
-    if (e.error === 'network') { showErr('網路錯誤，嘗試重新連接…'); }
+    if (e.error === 'network') showErr('網路錯誤，嘗試重連…');
   };
+
   recognition.onend = () => {
-    // iOS stops recognition every ~60s — auto restart
-    if (isRecording) { try { recognition.start(); } catch(e) {} }
+    // Only restart if THIS session is still active AND it's still THIS recognition object
+    if (isRecording && sessionId === mySession && recognition === myRecognition) {
+      setTimeout(() => {
+        if (isRecording && sessionId === mySession) {
+          try { myRecognition.start(); } catch(e) {}
+        }
+      }, 200);
+    }
   };
 
   try { recognition.start(); }
@@ -336,37 +353,33 @@ async function startCapture() {
 
   isRecording = true;
   startTime = Date.now();
-  pendingFinal = ''; lastEn = ''; lastZh = '';
-  logEntries = [];
 
+  // UI
   document.getElementById('btnStart').style.display = 'none';
   document.getElementById('btnStop').style.display = '';
   document.getElementById('btnDl').disabled = true;
   document.getElementById('prevEn').textContent = '';
   document.getElementById('prevZh').textContent = '';
-
   const ce = document.getElementById('curEn');
   const cz = document.getElementById('curZh');
-  ce.textContent = '聆聽中，請說話…'; ce.classList.remove('placeholder'); ce.classList.remove('interim');
+  ce.textContent = '聆聽中，請說話…'; ce.classList.remove('placeholder','interim');
   cz.textContent = ''; cz.classList.remove('placeholder');
-
   setStatus('rec', '錄製中');
 }
 
 // ── Handle SR result ──────────────────────────────────────────
-function handleResult(event) {
+function handleResult(event, mySession) {
   let interim = '';
   for (let i = event.resultIndex; i < event.results.length; i++) {
     const r = event.results[i];
     if (r.isFinal) {
       pendingFinal += r[0].transcript + ' ';
       clearTimeout(translateTimer);
-      translateTimer = setTimeout(flushTranslate, 1500);
+      translateTimer = setTimeout(() => flushTranslate(mySession), 1500);
     } else {
       interim += r[0].transcript;
     }
   }
-  // Show live: confirmed pending + gray interim
   const ce = document.getElementById('curEn');
   const display = (pendingFinal + interim).trim();
   if (display) {
@@ -377,10 +390,13 @@ function handleResult(event) {
 }
 
 // ── Flush & translate ─────────────────────────────────────────
-async function flushTranslate() {
+async function flushTranslate(mySession) {
   const text = pendingFinal.trim();
   pendingFinal = '';
   if (!text) return;
+
+  // Guard: if session has changed, discard this result
+  if (sessionId !== mySession) return;
 
   document.getElementById('curEn').classList.remove('interim');
   document.getElementById('curZh').textContent = '翻譯中…';
@@ -399,9 +415,15 @@ async function flushTranslate() {
         ]
       })
     });
+
+    // Check session is still valid after await
+    if (sessionId !== mySession) return;
+
     const zh = res.ok ? ((await res.json()).choices?.[0]?.message?.content?.trim()||'') : '';
 
-    // Move current to previous
+    // One more check after second await
+    if (sessionId !== mySession) return;
+
     if (lastEn) {
       document.getElementById('prevEn').textContent = lastEn;
       document.getElementById('prevZh').textContent = lastZh;
@@ -410,24 +432,33 @@ async function flushTranslate() {
     document.getElementById('curZh').textContent = zh || '（翻譯失敗）';
     lastEn = text; lastZh = zh;
 
-    logEntries.push({ time: formatTime(Date.now()-startTime), en: text, zh });
+    logEntries.push({ time: formatTime(Date.now() - startTime), en: text, zh });
     document.getElementById('btnDl').disabled = false;
     clearErr();
   } catch(e) {
+    if (sessionId !== mySession) return;
     showErr('翻譯錯誤：' + e.message);
     document.getElementById('curZh').textContent = '';
   }
 
-  if (isRecording) setStatus('rec', '錄製中');
+  if (isRecording && sessionId === mySession) setStatus('rec', '錄製中');
 }
 
 // ── Stop ──────────────────────────────────────────────────────
 function stopCapture() {
   if (!isRecording) return;
   isRecording = false;
+
+  // Bump session to invalidate all in-flight callbacks
+  sessionId++;
+
   clearTimeout(translateTimer);
 
-  if (recognition) { try { recognition.abort(); } catch(e){} recognition = null; }
+  if (recognition) {
+    try { recognition.abort(); } catch(e){}
+    recognition = null;
+  }
+
   document.getElementById('recBadge').classList.remove('show');
 
   if (doRecord && fullRecorder) {
@@ -443,9 +474,6 @@ function stopCapture() {
   document.getElementById('btnStart').style.display = '';
   document.getElementById('btnStop').style.display = 'none';
   setStatus('', '已停止');
-
-  // Flush any remaining text
-  if (pendingFinal.trim()) flushTranslate();
 }
 
 // ── Audio player ──────────────────────────────────────────────
