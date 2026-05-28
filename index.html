@@ -2,262 +2,265 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>即時雙語字幕</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>即時字幕</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0d0d0f; --bg2: #16161a; --bg3: #1e1e24; --border: #2a2a35;
-    --amber: #f59e0b; --amber-dim: #92610a; --green: #22c55e; --red: #ef4444;
-    --text: #e2e2e8; --text-dim: #6b7280; --text-mid: #9ca3af;
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Noto Sans TC', sans-serif;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans TC', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
 
-  header { padding: 28px 40px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
-  .logo-icon { width: 40px; height: 40px; background: var(--amber); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-  header h1 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
-  header span { margin-left: auto; font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
-
-  main { flex: 1; padding: 40px; max-width: 920px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
-
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
-  .card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 14px; }
-
-  .source-toggle { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .source-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; cursor: pointer; text-align: left; transition: all 0.2s; }
-  .source-btn.active { border-color: var(--amber); background: rgba(245,158,11,0.08); }
-  .source-btn .src-icon { font-size: 22px; margin-bottom: 6px; }
-  .source-btn .src-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 4px; }
-  .source-btn .src-desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
-
-  .tip { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 16px 18px; font-size: 13px; color: var(--text-mid); line-height: 1.8; }
-  .tip strong { color: var(--amber); }
-  .tip a { color: var(--amber); }
-
-  .err-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 14px 18px; font-size: 13px; color: #fca5a5; line-height: 1.7; display: none; }
-  .err-box.show { display: block; }
-
-  .subtitle-area {
-    background: #000; border-radius: 14px; padding: 36px 40px 32px;
-    min-height: 180px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px;
-    position: relative; border: 1px solid var(--border);
+  /* ── Top bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: #111;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
   }
-  .subtitle-en { font-size: 24px; line-height: 1.55; color: #fff; font-weight: 400; min-height: 37px; }
-  .subtitle-zh { font-size: 21px; line-height: 1.55; color: var(--amber); font-weight: 300; min-height: 33px; }
-  .subtitle-dim { opacity: 0.35; }
-
-  .status-badge {
-    position: absolute; top: 16px; right: 18px;
+  .topbar-title { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+  .topbar-status {
     display: flex; align-items: center; gap: 7px;
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim);
+    font-size: 12px; color: #666;
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; }
   .dot.rec  { background: #ef4444; animation: blink 1.2s ease-in-out infinite; }
-  .dot.proc { background: var(--amber); animation: blink 0.7s ease-in-out infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+  .dot.proc { background: #f59e0b; animation: blink 0.7s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+  .btn-gear {
+    background: none; border: none; color: #555; font-size: 22px;
+    cursor: pointer; padding: 4px 0 4px 16px; line-height: 1;
+  }
 
-  .timer { position: absolute; top: 16px; left: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); }
+  /* ── Subtitle area ── */
+  .subtitle-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 24px 20px 20px;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .prev-en { font-size: 18px; line-height: 1.6; color: #555; font-weight: 300; }
+  .prev-zh { font-size: 16px; line-height: 1.6; color: #3a3a3a; font-weight: 300; }
+  .cur-en  { font-size: 26px; line-height: 1.55; color: #fff; font-weight: 400; }
+  .cur-zh  { font-size: 23px; line-height: 1.55; color: #f59e0b; font-weight: 400; }
+  .placeholder { color: #333; font-size: 18px; }
 
-  .controls { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn-start { flex: 1; min-width: 140px; padding: 16px; background: var(--amber); color: #000; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
-  .btn-start:hover { background: #fbbf24; transform: translateY(-1px); }
-  .btn-stop  { flex: 1; min-width: 140px; padding: 16px; background: transparent; color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; cursor: pointer; transition: all 0.2s; display: none; }
-  .btn-stop:hover { background: rgba(239,68,68,0.1); }
-  .btn-dl  { padding: 16px 20px; background: var(--bg2); color: var(--text); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-  .btn-dl:hover:not(:disabled) { border-color: var(--text-mid); }
-  .btn-dl:disabled { opacity: 0.3; cursor: not-allowed; }
-  .btn-mp3 { padding: 16px 20px; background: rgba(34,197,94,0.08); color: var(--green); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: none; }
-  .btn-mp3:hover:not(:disabled) { background: rgba(34,197,94,0.15); }
-  .btn-mp3:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* ── Controls ── */
+  .controls {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #0a0a0a;
+    border-top: 1px solid #1a1a1a;
+    flex-shrink: 0;
+  }
+  .btn-main {
+    flex: 1;
+    padding: 18px;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-start { background: #f59e0b; color: #000; }
+  .btn-stop  { background: #1a1a1a; color: #fca5a5; border: 1px solid #3a1a1a; }
+  .btn-txt   {
+    padding: 18px 20px;
+    border: 1px solid #222;
+    border-radius: 14px;
+    background: #111;
+    color: #888;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .btn-txt:disabled { opacity: 0.3; }
 
-  .log-header { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 12px; padding: 0 12px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
-  .log-header span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-  .log-wrap { max-height: 380px; overflow-y: auto; }
-  .log-wrap::-webkit-scrollbar { width: 4px; }
-  .log-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-  .log-entry { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 12px; padding: 10px 12px; border-radius: 8px; transition: background 0.15s; align-items: start; }
-  .log-entry:hover { background: var(--bg3); }
-  .log-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--amber); padding-top: 2px; }
-  .log-en { font-size: 13px; line-height: 1.7; color: var(--text); }
-  .log-zh { font-size: 13px; line-height: 1.7; color: var(--text-mid); }
-  .log-empty { text-align: center; padding: 36px 16px; font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  /* ── Settings panel (full-screen modal) ── */
+  .settings-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: flex-end;
+  }
+  .settings-overlay.open { display: flex; }
+  .settings-panel {
+    background: #111;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-height: 80dvh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .settings-handle {
+    width: 40px; height: 4px; background: #333;
+    border-radius: 99px; margin: 0 auto 8px;
+  }
+  .s-label { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .s-input {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    outline: none;
+  }
+  .s-input:focus { border-color: #f59e0b; }
+  .btn-save-key {
+    width: 100%;
+    padding: 14px;
+    background: #f59e0b;
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .save-ok { font-size: 13px; color: #22c55e; text-align: center; display: none; }
+  .seg-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg-btn {
+    padding: 10px 18px;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    background: #1a1a1a;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .seg-btn.active { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
+  .btn-close-settings {
+    width: 100%;
+    padding: 14px;
+    background: #1a1a1a;
+    color: #aaa;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
 
-  .key-row { display: flex; gap: 10px; align-items: center; }
-  .key-label { font-size: 12px; color: var(--text-dim); width: 110px; flex-shrink: 0; }
-  .key-input { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s; }
-  .key-input:focus { border-color: var(--amber); }
-  .btn-save { background: var(--amber); color: #000; border: none; border-radius: 8px; padding: 8px 18px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; }
-
-  .seg-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .seg-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-mid); transition: all 0.2s; }
-  .seg-btn.active { border-color: var(--amber); color: var(--amber); background: rgba(245,158,11,0.08); }
-
-  .mp3-toggle-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; user-select: none; }
-  .mp3-toggle-row:hover { border-color: var(--text-dim); }
-  .mp3-toggle-row.on { border-color: var(--green); background: rgba(34,197,94,0.06); }
-  .toggle-switch { width: 36px; height: 20px; background: var(--border); border-radius: 99px; position: relative; transition: background 0.2s; flex-shrink: 0; }
-  .toggle-switch::after { content:''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
-  .mp3-toggle-row.on .toggle-switch { background: var(--green); }
-  .mp3-toggle-row.on .toggle-switch::after { transform: translateX(16px); }
-  .mp3-toggle-text strong { display: block; font-size: 13px; color: var(--text); font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 3px; }
-  .mp3-toggle-text span { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
-
-  footer { text-align: center; padding: 20px; font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; border-top: 1px solid var(--border); }
+  /* ── Error bar ── */
+  .err-bar {
+    display: none;
+    background: rgba(239,68,68,0.15);
+    border-top: 1px solid rgba(239,68,68,0.3);
+    padding: 12px 20px;
+    font-size: 13px;
+    color: #fca5a5;
+    line-height: 1.5;
+    flex-shrink: 0;
+  }
+  .err-bar.show { display: block; }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo-icon">🎬</div>
-  <h1>即時雙語字幕</h1>
-  <span>Live Transcript v1.2</span>
-</header>
-
-<main>
-
-  <div class="card">
-    <div class="card-title">音訊來源</div>
-    <div class="source-toggle">
-      <button class="source-btn" id="src-screen" onclick="selectSource('screen')">
-        <div class="src-icon">🖥️</div>
-        <div class="src-name">電腦聲音</div>
-        <div class="src-desc">錄製 Teams / 任何程式的聲音，分享螢幕時選取</div>
-      </button>
-      <button class="source-btn active" id="src-mic" onclick="selectSource('mic')">
-        <div class="src-icon">🎙️</div>
-        <div class="src-name">麥克風</div>
-        <div class="src-desc">實體會議、對著 iPad 麥克風說話，或收環境聲音</div>
-      </button>
-      <button class="source-btn" id="src-both" onclick="selectSource('both')">
-        <div class="src-icon">🖥️＋🎙️</div>
-        <div class="src-name">兩者混合</div>
-        <div class="src-desc">電腦聲音 + 麥克風同時收，適合視訊＋你也說話</div>
-      </button>
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-title">即時雙語字幕</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="topbar-status">
+      <div class="dot" id="dot"></div>
+      <span id="statusTxt">待機</span>
     </div>
-    <div class="tip" id="sourceTip" style="margin-top:14px;">
-      <strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。iPad / iPhone Safari 支援。
-    </div>
+    <button class="btn-gear" onclick="openSettings()">⚙️</button>
   </div>
+</div>
 
-  <div id="errBox" class="err-box"></div>
+<!-- Subtitle display -->
+<div class="subtitle-wrap" id="subtitleWrap">
+  <div class="prev-en" id="prevEn"></div>
+  <div class="prev-zh" id="prevZh"></div>
+  <div class="cur-en placeholder" id="curEn">按下「開始」後，英文字幕出現在這裡</div>
+  <div class="cur-zh placeholder" id="curZh">中文翻譯顯示於此</div>
+</div>
 
-  <div class="subtitle-area">
-    <div class="timer" id="timer">00:00</div>
-    <div class="status-badge">
-      <div class="dot" id="statusDot"></div>
-      <span id="statusText">待機中</span>
-    </div>
-    <div class="subtitle-en subtitle-dim" id="subtitleEn">按「開始錄製」後字幕將出現在這裡</div>
-    <div class="subtitle-zh subtitle-dim" id="subtitleZh">Subtitles will appear here after you start</div>
-  </div>
+<!-- Error bar -->
+<div class="err-bar" id="errBar"></div>
 
-  <div class="controls">
-    <button class="btn-start" id="btnStart" onclick="startCapture()">▶ 開始錄製</button>
-    <button class="btn-stop"  id="btnStop"  onclick="stopCapture()">⏹ 停止</button>
-    <button class="btn-dl"    id="btnDl"    onclick="downloadTxt()" disabled>📥 下載 .txt</button>
-    <button class="btn-mp3"   id="btnMp3"   onclick="downloadAudio()" style="display:none">🎙️ 下載錄音</button>
-  </div>
+<!-- Controls -->
+<div class="controls">
+  <button class="btn-main btn-start" id="btnStart" onclick="startCapture()">▶ 開始</button>
+  <button class="btn-main btn-stop"  id="btnStop"  onclick="stopCapture()" style="display:none">⏹ 停止</button>
+  <button class="btn-txt" id="btnDl" onclick="downloadTxt()" disabled>下載逐字稿</button>
+</div>
 
-  <div class="card">
-    <div class="card-title">完整逐字稿</div>
-    <div class="log-header">
-      <span>時間</span><span>原文（英文）</span><span>中文翻譯</span>
-    </div>
-    <div class="log-wrap" id="logWrap">
-      <div class="log-empty" id="logEmpty">逐字稿將在這裡累積…</div>
-    </div>
-  </div>
+<!-- Settings overlay -->
+<div class="settings-overlay" id="settingsOverlay" onclick="overlayClick(event)">
+  <div class="settings-panel">
+    <div class="settings-handle"></div>
 
-  <div class="card">
-    <div class="card-title">設定</div>
-
-    <div style="margin-bottom:20px;">
-      <div class="card-title" style="font-size:11px;margin-bottom:8px;">OpenAI API Key
-        <span style="font-family:'JetBrains Mono';font-size:10px;color:var(--amber);letter-spacing:0;text-transform:none;font-weight:400;margin-left:8px;">存在本機瀏覽器，不會上傳</span>
-      </div>
-      <div class="key-row">
-        <span class="key-label">OpenAI Key</span>
-        <input class="key-input" type="password" id="inputOpenaiKey" placeholder="sk-...">
-        <button class="btn-save" onclick="saveKey()">儲存</button>
-      </div>
-      <div id="saveStatus" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">✓ 已儲存</div>
+    <div>
+      <div class="s-label">OpenAI API Key <span style="color:#f59e0b;font-size:10px;letter-spacing:0;text-transform:none;">存在瀏覽器，不上傳</span></div>
+      <input class="s-input" type="password" id="keyInput" placeholder="sk-...">
+      <button class="btn-save-key" onclick="saveKey()" style="margin-top:10px;">儲存 Key</button>
+      <div class="save-ok" id="saveOk">✓ 已儲存</div>
     </div>
 
-    <div style="margin-bottom:20px;">
-      <div class="card-title" style="font-size:11px;margin-bottom:8px;">每段辨識長度（越短延遲越低，準確度稍差）</div>
+    <div>
+      <div class="s-label">每段辨識長度</div>
       <div class="seg-row">
         <button class="seg-btn" onclick="setSeg(5000,this)">5 秒</button>
-        <button class="seg-btn active" onclick="setSeg(8000,this)">8 秒（預設）</button>
+        <button class="seg-btn active" onclick="setSeg(8000,this)">8 秒</button>
         <button class="seg-btn" onclick="setSeg(12000,this)">12 秒</button>
         <button class="seg-btn" onclick="setSeg(18000,this)">18 秒</button>
       </div>
     </div>
 
-    <div>
-      <div class="card-title" style="font-size:11px;margin-bottom:8px;">同時錄製完整音訊</div>
-      <div class="mp3-toggle-row" id="mp3ToggleRow" onclick="toggleMp3()">
-        <div class="toggle-switch" id="mp3Switch"></div>
-        <div class="mp3-toggle-text">
-          <strong id="mp3ToggleLabel">關閉 — 只做逐字稿</strong>
-          <span id="mp3ToggleDesc">開啟後會議期間同時在本機錄製完整音訊，停止後可下載。</span>
-        </div>
-      </div>
-    </div>
+    <button class="btn-close-settings" onclick="closeSettings()">關閉</button>
   </div>
-
-</main>
-
-<footer>音訊傳送至 OpenAI Whisper 轉錄 · 翻譯由 GPT-4o-mini 處理 · 錄音僅存本機</footer>
+</div>
 
 <script>
 // ── Key ───────────────────────────────────────────────────────
 function getKey() { return localStorage.getItem('live_openai_key') || ''; }
 function saveKey() {
-  const v = document.getElementById('inputOpenaiKey').value.trim();
-  if (v) localStorage.setItem('live_openai_key', v);
-  const s = document.getElementById('saveStatus');
-  s.style.display = 'block';
-  setTimeout(() => s.style.display = 'none', 2000);
+  const v = document.getElementById('keyInput').value.trim();
+  if (v) { localStorage.setItem('live_openai_key', v); }
+  const ok = document.getElementById('saveOk');
+  ok.style.display = 'block';
+  setTimeout(() => ok.style.display = 'none', 2000);
 }
-(function init() {
+(function(){
   const k = localStorage.getItem('live_openai_key') || localStorage.getItem('meeting_openai') || '';
-  if (k) document.getElementById('inputOpenaiKey').value = k;
+  if (k) document.getElementById('keyInput').value = k;
 })();
 
-// ── Error display ─────────────────────────────────────────────
-function showErr(msg) {
-  const b = document.getElementById('errBox');
-  b.textContent = '⚠️ ' + msg;
-  b.classList.add('show');
-}
-function clearErr() {
-  document.getElementById('errBox').classList.remove('show');
-}
+// ── Settings ──────────────────────────────────────────────────
+function openSettings()  { document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+function overlayClick(e) { if (e.target === document.getElementById('settingsOverlay')) closeSettings(); }
 
-// ── Source selector ───────────────────────────────────────────
-let audioSource = 'mic';
-const tipTexts = {
-  screen: '<strong>🖥️ 電腦聲音模式：</strong>點「開始錄製」後 Chrome 會請你選分享視窗，勾選底部「也分享音訊 / Share audio」。<br>⚠️ iOS Safari 不支援此模式，請改用麥克風。',
-  mic:    '<strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。iPad / iPhone Safari 支援。',
-  both:   '<strong>🖥️＋🎙️ 混合模式：</strong>同時收電腦聲音和麥克風。<br>⚠️ iOS Safari 不支援此模式，請改用麥克風。'
-};
-function selectSource(src) {
-  audioSource = src;
-  ['screen','mic','both'].forEach(s => document.getElementById('src-'+s).classList.toggle('active', s===src));
-  document.getElementById('sourceTip').innerHTML = tipTexts[src];
-}
-
-// ── WebM toggle ───────────────────────────────────────────────
-let recordMp3 = false;
-function toggleMp3() {
-  recordMp3 = !recordMp3;
-  document.getElementById('mp3ToggleRow').classList.toggle('on', recordMp3);
-  document.getElementById('mp3ToggleLabel').textContent = recordMp3 ? '開啟 — 同時錄製音訊' : '關閉 — 只做逐字稿';
-}
-
-// ── Segment length ────────────────────────────────────────────
+// ── Segment ───────────────────────────────────────────────────
 let SEGMENT_MS = 8000;
 function setSeg(ms, btn) {
   SEGMENT_MS = ms;
@@ -265,69 +268,49 @@ function setSeg(ms, btn) {
   btn.classList.add('active');
 }
 
-// ── State ─────────────────────────────────────────────────────
-let mediaStream   = null;
-let mediaRecorder = null;
-let audioChunks   = [];
-let fullRecorder  = null;
-let fullChunks    = [];
-let isRecording   = false;
-let segmentTimer  = null;
-let dataInterval  = null;
-let startTime     = null;
-let segmentStart  = null;
-let timerInterval = null;
-let logEntries    = [];
+// ── Error ─────────────────────────────────────────────────────
+function showErr(msg) {
+  const b = document.getElementById('errBar');
+  b.textContent = '⚠️ ' + msg;
+  b.classList.add('show');
+}
+function clearErr() { document.getElementById('errBar').classList.remove('show'); }
 
-// ── UI helpers ────────────────────────────────────────────────
+// ── Status ────────────────────────────────────────────────────
 function setStatus(type, text) {
-  const dot  = document.getElementById('statusDot');
-  const span = document.getElementById('statusText');
-  dot.className    = 'dot' + (type ? ' '+type : '');
-  span.textContent = text;
-  span.style.color = type==='rec' ? '#ef4444' : type==='proc' ? 'var(--amber)' : 'var(--text-dim)';
+  document.getElementById('dot').className = 'dot' + (type ? ' '+type : '');
+  const s = document.getElementById('statusTxt');
+  s.textContent = text;
+  s.style.color = type==='rec' ? '#ef4444' : type==='proc' ? '#f59e0b' : '#555';
 }
-function setSubtitle(en, zh, dim) {
-  const elEn = document.getElementById('subtitleEn');
-  const elZh = document.getElementById('subtitleZh');
-  if (en !== null) elEn.textContent = en;
-  if (zh !== null) elZh.textContent = zh;
-  elEn.classList.toggle('subtitle-dim', !!dim);
-  elZh.classList.toggle('subtitle-dim', !!dim);
-}
-function formatTime(ms) {
-  const s = Math.floor(Math.max(0, ms) / 1000);
-  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-}
-function startTimer() {
-  timerInterval = setInterval(() => {
-    if (startTime) document.getElementById('timer').textContent = formatTime(Date.now()-startTime);
-  }, 1000);
-}
-function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
 
-function addLogRow(timeMs, en, zh) {
-  const wrap  = document.getElementById('logWrap');
-  const empty = document.getElementById('logEmpty');
-  if (empty) empty.remove();
-  const t = formatTime(timeMs);
-  logEntries.push({ time: t, en, zh });
-  const div = document.createElement('div');
-  div.className = 'log-entry';
-  div.innerHTML = `<div class="log-time">${t}</div><div class="log-en">${esc(en)}</div><div class="log-zh">${esc(zh)}</div>`;
-  wrap.appendChild(div);
-  wrap.scrollTop = wrap.scrollHeight;
+// ── Subtitle ──────────────────────────────────────────────────
+let lastEn = '', lastZh = '';
+function setSubtitle(en, zh) {
+  if (en !== null) {
+    if (lastEn) {
+      document.getElementById('prevEn').textContent = lastEn;
+      document.getElementById('prevZh').textContent = lastZh;
+    }
+    const ce = document.getElementById('curEn');
+    const cz = document.getElementById('curZh');
+    ce.textContent = en;
+    ce.classList.remove('placeholder');
+    cz.textContent = zh || '';
+    cz.classList.remove('placeholder');
+  } else if (zh !== null) {
+    document.getElementById('curZh').textContent = zh;
+  }
 }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function commitSubtitle(en, zh) {
+  lastEn = en; lastZh = zh;
+}
 
-// ── MIME helpers ──────────────────────────────────────────────
+// ── MIME ──────────────────────────────────────────────────────
 function bestMime() {
   if (typeof MediaRecorder === 'undefined') return '';
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-  for (const t of candidates) {
-    try { if (MediaRecorder.isTypeSupported(t)) return t; } catch(e) {}
-  }
-  // Safari fallback: isTypeSupported may lie, try audio/mp4 anyway
+  const list = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  for (const t of list) { try { if (MediaRecorder.isTypeSupported(t)) return t; } catch(e){} }
   return 'audio/mp4';
 }
 function mimeExt(mime) {
@@ -337,168 +320,101 @@ function mimeExt(mime) {
   return 'webm';
 }
 
-// ── Start capture ─────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────
+let mediaStream=null, mediaRecorder=null, audioChunks=[];
+let isRecording=false, segTimer=null, dataInterval=null;
+let startTime=null, segStart=null, logEntries=[];
+
+// ── Start ─────────────────────────────────────────────────────
 async function startCapture() {
   clearErr();
-  const key = getKey();
-  if (!key) { showErr('請先在下方填入 OpenAI API Key 並按「儲存」。'); return; }
-
+  if (!getKey()) { openSettings(); showErr('請先填入 OpenAI API Key 並按儲存。'); return; }
   if (typeof MediaRecorder === 'undefined') {
-    showErr('此裝置不支援錄音。請更新 iOS 至 14.3 以上版本，或改用 Chrome。');
-    return;
+    showErr('此裝置不支援錄音。請更新 iOS 至 14.3 以上版本。'); return;
   }
-
   try {
-    let tracks = [];
-
-    if (audioSource === 'mic' || audioSource === 'both') {
-      const mic = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
-      });
-      tracks = tracks.concat(mic.getAudioTracks());
-    }
-
-    if (audioSource === 'screen' || audioSource === 'both') {
-      const scr = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal:1, max:1 }, width:1, height:1 },
-        audio: true
-      });
-      scr.getVideoTracks().forEach(t => t.stop());
-      if (!scr.getAudioTracks().length) {
-        showErr('沒有偵測到音訊！請確認分享畫面時，底部有勾選「也分享音訊（Share audio）」。');
-        scr.getTracks().forEach(t => t.stop());
-        tracks.forEach(t => t.stop());
-        return;
-      }
-      tracks = tracks.concat(scr.getAudioTracks());
-      scr.getAudioTracks()[0].addEventListener('ended', stopCapture);
-    }
-
-    if (audioSource === 'both' && tracks.length >= 2) {
-      const ctx  = new AudioContext();
-      const dest = ctx.createMediaStreamDestination();
-      tracks.forEach(t => ctx.createMediaStreamSource(new MediaStream([t])).connect(dest));
-      mediaStream = dest.stream;
-    } else {
-      mediaStream = new MediaStream(tracks);
-    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    mediaStream = stream;
+    stream.getAudioTracks()[0].addEventListener('ended', stopCapture);
 
     isRecording = true;
-    startTime   = Date.now();
-    logEntries  = [];
-    fullChunks  = [];
+    startTime = Date.now();
+    logEntries = [];
+    lastEn = ''; lastZh = '';
 
     document.getElementById('btnStart').style.display = 'none';
-    document.getElementById('btnStop').style.display  = 'block';
+    document.getElementById('btnStop').style.display = '';
     document.getElementById('btnDl').disabled = true;
-    document.getElementById('btnMp3').style.display = 'none';
-    document.getElementById('logWrap').innerHTML = '<div class="log-empty" id="logEmpty">辨識中，請稍候第一段字幕…</div>';
+    document.getElementById('prevEn').textContent = '';
+    document.getElementById('prevZh').textContent = '';
+    document.getElementById('curEn').textContent = '聆聽中…';
+    document.getElementById('curEn').classList.remove('placeholder');
+    document.getElementById('curZh').textContent = '';
+    document.getElementById('curZh').classList.remove('placeholder');
 
     setStatus('rec', '錄製中');
-    setSubtitle('', '', false);
-    startTimer();
-
-    if (recordMp3) {
-      const mime = bestMime();
-      try {
-        fullRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
-      } catch(e) {
-        fullRecorder = new MediaRecorder(mediaStream);
-      }
-      fullRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) fullChunks.push(e.data); };
-      fullRecorder.start();
-    }
-
     launchSegment();
-
-  } catch (e) {
-    isRecording = false;
-    if (e.name === 'NotAllowedError') {
-      showErr('麥克風權限遭拒。請在瀏覽器設定中允許此網站使用麥克風。');
-    } else {
-      showErr('啟動失敗：' + e.message);
-    }
+  } catch(e) {
+    if (e.name === 'NotAllowedError') showErr('麥克風權限遭拒。請在 Safari 設定中允許此網站使用麥克風。');
+    else showErr('啟動失敗：' + e.message);
   }
 }
 
 // ── Segment loop ──────────────────────────────────────────────
 function launchSegment() {
   if (!isRecording) return;
-  audioChunks  = [];
-  segmentStart = Date.now() - startTime;
-
+  audioChunks = [];
+  segStart = Date.now() - startTime;
   const mime = bestMime();
-  try {
-    mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
-  } catch(e) {
-    try {
-      mediaRecorder = new MediaRecorder(mediaStream);
-    } catch(e2) {
-      showErr('錄音器建立失敗：' + e2.message);
-      stopCapture();
-      return;
-    }
-  }
+  try { mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {}); }
+  catch(e) { try { mediaRecorder = new MediaRecorder(mediaStream); } catch(e2) { showErr('錄音器建立失敗：'+e2.message); stopCapture(); return; } }
 
-  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.ondataavailable = e => { if (e.data?.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.onerror = e => showErr('錄音錯誤：' + (e.error?.message||'未知'));
   mediaRecorder.onstop = () => {
     clearInterval(dataInterval);
     const mimeType = mediaRecorder.mimeType || mime || 'audio/mp4';
     const blob = new Blob(audioChunks, { type: mimeType });
-    const at   = segmentStart;
+    const at = segStart;
     processSegment(blob, at).finally(() => { if (isRecording) launchSegment(); });
   };
-  mediaRecorder.onerror = e => {
-    showErr('錄音錯誤：' + (e.error?.message || '未知錯誤'));
-  };
 
-  // start() without timeslice — more compatible with Safari
   mediaRecorder.start();
-
-  // requestData() polling as fallback for browsers that need it
   dataInterval = setInterval(() => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      try { mediaRecorder.requestData(); } catch(e) {}
-    }
+    if (mediaRecorder?.state === 'recording') try { mediaRecorder.requestData(); } catch(e){}
   }, 500);
-
-  segmentTimer = setTimeout(() => {
+  segTimer = setTimeout(() => {
     clearInterval(dataInterval);
-    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
   }, SEGMENT_MS);
 }
 
-// ── Process one segment ───────────────────────────────────────
-async function processSegment(blob, elapsedAtStart) {
+// ── Process segment ───────────────────────────────────────────
+async function processSegment(blob, at) {
   if (blob.size < 1000) return;
-  setStatus('proc', '辨識中…');
+  setStatus('proc', '辨識中');
   try {
     const key = getKey();
     const ext = mimeExt(blob.type || bestMime());
-    const audioFile = new File([blob], `seg.${ext}`, { type: blob.type || 'audio/mp4' });
-
     const form = new FormData();
-    form.append('file', audioFile);
+    form.append('file', new File([blob], `seg.${ext}`, { type: blob.type||'audio/mp4' }));
     form.append('model', 'whisper-1');
-    form.append('prompt', 'This is an international meeting. Transcribe faithfully, preserving English technical terms.');
+    form.append('prompt', 'International meeting. Preserve English technical terms.');
 
     const wRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}` },
-      body: form
+      method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form
     });
     if (!wRes.ok) {
-      const err = await wRes.json().catch(() => ({}));
-      const msg = err?.error?.message || `Whisper API 錯誤 ${wRes.status}`;
-      if (wRes.status !== 400) showErr(msg);
-      setStatus('rec','錄製中');
+      const err = await wRes.json().catch(()=>({}));
+      if (wRes.status !== 400) showErr('Whisper 錯誤：' + (err?.error?.message || wRes.status));
+      if (isRecording) setStatus('rec','錄製中');
       return;
     }
-    const { text } = await wRes.json();
-    const en = text.trim();
-    if (!en) { setStatus('rec','錄製中'); return; }
+    const en = (await wRes.json()).text?.trim();
+    if (!en) { if (isRecording) setStatus('rec','錄製中'); return; }
 
-    setSubtitle(en, '翻譯中…', false);
+    setSubtitle(en, '翻譯中…');
+    clearErr();
 
     const tRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -506,70 +422,54 @@ async function processSegment(blob, elapsedAtStart) {
       body: JSON.stringify({
         model: 'gpt-4o-mini', max_tokens: 400,
         messages: [
-          { role: 'system', content: '你是專業口譯員。將英文翻譯為繁體中文（台灣慣用語）。金融監理、審計、IFRS 等專有名詞請保留英文縮寫並附中文。只輸出翻譯結果。' },
+          { role: 'system', content: '你是專業即時口譯。將英文口譯為繁體中文（台灣用語）。金融監理、IFRS、審計等專業術語保留英文縮寫並附中文。只輸出翻譯，不加解釋。' },
           { role: 'user', content: en }
         ]
       })
     });
-    let zh = '';
-    if (tRes.ok) {
-      const td = await tRes.json();
-      zh = td.choices?.[0]?.message?.content?.trim() || '';
-    }
-    setSubtitle(en, zh || '（翻譯失敗）', false);
-    addLogRow(elapsedAtStart, en, zh);
-  } catch (e) {
-    showErr('處理錯誤：' + e.message);
+    const zh = tRes.ok ? ((await tRes.json()).choices?.[0]?.message?.content?.trim() || '') : '';
+
+    setSubtitle(en, zh || '（翻譯失敗）');
+    commitSubtitle(en, zh);
+
+    const t = formatTime(at);
+    logEntries.push({ time: t, en, zh });
+    document.getElementById('btnDl').disabled = false;
+  } catch(e) {
+    showErr('錯誤：' + e.message);
   }
   if (isRecording) setStatus('rec', '錄製中');
 }
 
-// ── Stop capture ──────────────────────────────────────────────
+// ── Stop ──────────────────────────────────────────────────────
 function stopCapture() {
   if (!isRecording) return;
   isRecording = false;
-  clearTimeout(segmentTimer);
+  clearTimeout(segTimer);
   clearInterval(dataInterval);
-  stopTimer();
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  if (fullRecorder  && fullRecorder.state  !== 'inactive') fullRecorder.stop();
-  if (mediaStream)  { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-
+  if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+  mediaStream?.getTracks().forEach(t => t.stop());
+  mediaStream = null;
   document.getElementById('btnStart').style.display = '';
-  document.getElementById('btnStop').style.display  = 'none';
-  document.getElementById('btnDl').disabled = logEntries.length === 0;
-  if (recordMp3 && fullChunks.length > 0) {
-    document.getElementById('btnMp3').style.display = '';
-  }
+  document.getElementById('btnStop').style.display = 'none';
   setStatus('', '已停止');
-  document.getElementById('subtitleEn').classList.add('subtitle-dim');
-  document.getElementById('subtitleZh').classList.add('subtitle-dim');
-}
-
-// ── Download audio ────────────────────────────────────────────
-function downloadAudio() {
-  if (!fullChunks.length) return;
-  const mime = fullRecorder?.mimeType || bestMime() || 'audio/mp4';
-  const blob = new Blob(fullChunks, { type: mime });
-  const ext  = mimeExt(mime);
-  const date = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g,'-');
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `會議錄音_${date}.${ext}`; a.click();
-  URL.revokeObjectURL(url);
 }
 
 // ── Download TXT ──────────────────────────────────────────────
 function downloadTxt() {
   if (!logEntries.length) return;
-  const date   = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
-  const header = `即時雙語逐字稿\n日期：${date}\n${'─'.repeat(50)}\n\n`;
-  const body   = logEntries.map(e => `[${e.time}]\n${e.en}\n${e.zh}\n`).join('\n');
-  const blob   = new Blob([header + body], { type: 'text/plain;charset=utf-8' });
-  const url    = URL.createObjectURL(blob);
-  const a      = document.createElement('a');
-  a.href = url; a.download = `逐字稿_${date.replace(/\//g,'-')}.txt`; a.click();
+  const date = new Date().toLocaleDateString('zh-TW');
+  const txt = `即時雙語逐字稿　${date}\n${'─'.repeat(40)}\n\n` +
+    logEntries.map(e => `[${e.time}]\n${e.en}\n${e.zh}`).join('\n\n');
+  const url = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: `逐字稿_${date}.txt` });
+  a.click();
   URL.revokeObjectURL(url);
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms/1000);
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 </script>
 </body>
