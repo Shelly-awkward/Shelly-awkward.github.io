@@ -66,7 +66,6 @@
   }
   .err-bar.show { display: block; }
 
-  /* Audio player shown after stop on iOS */
   .audio-wrap {
     display: none; flex-shrink: 0;
     background: #0d1a0d;
@@ -108,7 +107,6 @@
   .btn-sm:disabled { opacity: 0.3; cursor: default; }
   .btn-sm.green { border-color: rgba(34,197,94,0.4); color: #22c55e; background: rgba(34,197,94,0.06); }
 
-  /* Settings sheet */
   .overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.8); z-index: 100;
@@ -192,7 +190,6 @@
 
 <div class="err-bar" id="errBar"></div>
 
-<!-- Audio playback panel (shown after stop when recording was on) -->
 <div class="audio-wrap" id="audioWrap">
   <div class="audio-label">🎙️ 錄音完成</div>
   <audio id="audioPlayer" controls></audio>
@@ -206,7 +203,6 @@
   <button class="btn-sm green" id="btnSaveAudio" onclick="saveAudio()" style="display:none">儲存錄音</button>
 </div>
 
-<!-- Settings sheet -->
 <div class="overlay" id="overlay" onclick="overlayClick(event)">
   <div class="sheet">
     <div class="handle"></div>
@@ -244,11 +240,9 @@
 </div>
 
 <script>
-// ── Detect iOS ────────────────────────────────────────────────
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-// ── Key ───────────────────────────────────────────────────────
 function getKey() { return localStorage.getItem('live_openai_key') || ''; }
 function saveKey() {
   const v = document.getElementById('keyInput').value.trim();
@@ -262,12 +256,10 @@ function saveKey() {
   if (k) document.getElementById('keyInput').value = k;
 })();
 
-// ── Settings ──────────────────────────────────────────────────
 function openSettings()  { document.getElementById('overlay').classList.add('open'); }
 function closeSettings() { document.getElementById('overlay').classList.remove('open'); }
 function overlayClick(e) { if (e.target===document.getElementById('overlay')) closeSettings(); }
 
-// ── Rec toggle ────────────────────────────────────────────────
 let doRecord = false;
 function toggleRec() {
   doRecord = !doRecord;
@@ -275,7 +267,6 @@ function toggleRec() {
   document.getElementById('recLabel').textContent = doRecord ? '開啟 — 同時錄製音訊' : '關閉 — 只做逐字稿';
 }
 
-// ── Segment ───────────────────────────────────────────────────
 let SEGMENT_MS = 8000;
 function setSeg(ms, btn) {
   SEGMENT_MS = ms;
@@ -283,7 +274,6 @@ function setSeg(ms, btn) {
   btn.classList.add('active');
 }
 
-// ── Error ─────────────────────────────────────────────────────
 function showErr(msg) {
   const b = document.getElementById('errBar');
   b.textContent = '⚠️ ' + msg;
@@ -291,7 +281,6 @@ function showErr(msg) {
 }
 function clearErr() { document.getElementById('errBar').classList.remove('show'); }
 
-// ── Status ────────────────────────────────────────────────────
 function setStatus(type, text) {
   document.getElementById('dot').className = 'dot' + (type ? ' '+type : '');
   const s = document.getElementById('statusTxt');
@@ -299,7 +288,6 @@ function setStatus(type, text) {
   s.style.color = type==='rec' ? '#ef4444' : type==='proc' ? '#f59e0b' : '#555';
 }
 
-// ── Subtitle ──────────────────────────────────────────────────
 let lastEn = '', lastZh = '';
 function showSubtitle(en, zh) {
   if (lastEn) {
@@ -316,7 +304,6 @@ function updateZh(zh) {
   document.getElementById('curZh').textContent = zh;
 }
 
-// ── MIME ──────────────────────────────────────────────────────
 function bestMime() {
   if (typeof MediaRecorder === 'undefined') return '';
   const list = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
@@ -330,13 +317,11 @@ function mimeExt(mime) {
   return 'webm';
 }
 
-// ── State ─────────────────────────────────────────────────────
 let mediaStream=null, mediaRecorder=null, audioChunks=[];
 let fullRecorder=null, fullChunks=[], fullMime='';
 let isRecording=false, segTimer=null, dataInterval=null;
 let startTime=null, segStart=null, logEntries=[];
 
-// ── Start ─────────────────────────────────────────────────────
 async function startCapture() {
   clearErr();
   document.getElementById('audioWrap').classList.remove('show');
@@ -347,8 +332,9 @@ async function startCapture() {
     showErr('此裝置不支援錄音。請更新 iOS 至 14.3 以上版本。'); return;
   }
   try {
+    // 關閉所有音訊處理，取得原始乾淨音訊
     mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true }
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     });
     mediaStream.getAudioTracks()[0].addEventListener('ended', stopCapture);
 
@@ -370,10 +356,9 @@ async function startCapture() {
 
     setStatus('rec', '錄製中');
 
-    // Full recording
     if (doRecord) {
       fullMime = bestMime();
-      try { fullRecorder = new MediaRecorder(mediaStream, fullMime ? { mimeType: fullMime } : {}); }
+      try { fullRecorder = new MediaRecorder(mediaStream, fullMime ? { mimeType: fullMime, audioBitsPerSecond: 128000 } : {}); }
       catch(e) { fullRecorder = new MediaRecorder(mediaStream); fullMime = ''; }
       fullRecorder.ondataavailable = e => { if (e.data?.size > 0) fullChunks.push(e.data); };
       fullRecorder.start(1000);
@@ -388,7 +373,6 @@ async function startCapture() {
   }
 }
 
-// ── Segment ───────────────────────────────────────────────────
 function launchSegment() {
   if (!isRecording) return;
   audioChunks = [];
@@ -416,7 +400,6 @@ function launchSegment() {
   }, SEGMENT_MS);
 }
 
-// ── Process ───────────────────────────────────────────────────
 async function processSegment(blob, at) {
   if (blob.size < 1000) return;
   setStatus('proc', '辨識中');
@@ -458,8 +441,7 @@ async function processSegment(blob, at) {
     updateZh(zh || '（翻譯失敗）');
     lastZh = zh;
 
-    const t = formatTime(at);
-    logEntries.push({ time: t, en, zh });
+    logEntries.push({ time: formatTime(at), en, zh });
     document.getElementById('btnDl').disabled = false;
   } catch(e) {
     showErr('錯誤：' + e.message);
@@ -467,14 +449,12 @@ async function processSegment(blob, at) {
   if (isRecording) setStatus('rec', '錄製中');
 }
 
-// ── Stop ──────────────────────────────────────────────────────
 function stopCapture() {
   if (!isRecording) return;
   isRecording = false;
   clearTimeout(segTimer);
   clearInterval(dataInterval);
   if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
-
   document.getElementById('recBadge').classList.remove('show');
 
   if (doRecord && fullRecorder) {
@@ -488,56 +468,45 @@ function stopCapture() {
 
   mediaStream?.getTracks().forEach(t => t.stop());
   mediaStream = null;
-
   document.getElementById('btnStart').style.display = '';
   document.getElementById('btnStop').style.display = 'none';
   setStatus('', '已停止');
 }
 
-// ── Audio player ──────────────────────────────────────────────
 function showAudioPlayer() {
   if (!fullChunks.length) return;
   const mime = fullRecorder?.mimeType || fullMime || 'audio/mp4';
   const blob = new Blob(fullChunks, { type: mime });
   const url  = URL.createObjectURL(blob);
-
   document.getElementById('audioPlayer').src = url;
   document.getElementById('audioWrap').classList.add('show');
   document.getElementById('btnSaveAudio').style.display = '';
-
-  if (isIOS) {
-    document.getElementById('audioHint').textContent =
-      'iOS：播放器右下角按 ⋯ → 分享 → 儲存至「檔案」';
-  } else {
-    document.getElementById('audioHint').textContent = '點「儲存錄音」下載音訊檔案';
-  }
+  document.getElementById('audioHint').textContent = isIOS
+    ? 'iOS：播放器右下角按 ⋯ → 分享 → 儲存至「檔案」'
+    : '點「儲存錄音」下載音訊檔案';
 }
 
 function saveAudio() {
   if (!fullChunks.length) return;
   const mime = fullRecorder?.mimeType || fullMime || 'audio/mp4';
   const blob = new Blob(fullChunks, { type: mime });
-  const ext  = mimeExt(mime);
   const url  = URL.createObjectURL(blob);
   const date = new Date().toLocaleDateString('zh-TW').replace(/\//g,'-');
   if (isIOS) {
     window.open(url, '_blank');
   } else {
-    const a = Object.assign(document.createElement('a'), { href: url, download: `會議錄音_${date}.${ext}` });
-    a.click();
+    Object.assign(document.createElement('a'), { href: url, download: `會議錄音_${date}.${mimeExt(mime)}` }).click();
     URL.revokeObjectURL(url);
   }
 }
 
-// ── Download TXT ──────────────────────────────────────────────
 function downloadTxt() {
   if (!logEntries.length) return;
   const date = new Date().toLocaleDateString('zh-TW');
   const txt  = `即時雙語逐字稿　${date}\n${'─'.repeat(40)}\n\n` +
     logEntries.map(e => `[${e.time}]\n${e.en}\n${e.zh}`).join('\n\n');
   const url  = URL.createObjectURL(new Blob([txt], { type:'text/plain;charset=utf-8' }));
-  const a    = Object.assign(document.createElement('a'), { href: url, download: `逐字稿_${date}.txt` });
-  a.click();
+  Object.assign(document.createElement('a'), { href: url, download: `逐字稿_${date}.txt` }).click();
   URL.revokeObjectURL(url);
 }
 
