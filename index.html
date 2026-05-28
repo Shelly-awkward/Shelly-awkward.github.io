@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時雙語字幕</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0f; --bg2: #16161a; --bg3: #1e1e24; --border: #2a2a35;
+    --amber: #f59e0b; --amber-dim: #92610a; --green: #22c55e;
+    --text: #e2e2e8; --text-dim: #6b7280; --text-mid: #9ca3af;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans TC', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+
+  header { padding: 28px 40px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; }
+  .logo-icon { width: 40px; height: 40px; background: var(--amber); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  header h1 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+  header span { margin-left: auto; font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+  main { flex: 1; padding: 40px; max-width: 920px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 14px; }
+
+  .source-toggle { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .source-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; cursor: pointer; text-align: left; transition: all 0.2s; }
+  .source-btn.active { border-color: var(--amber); background: rgba(245,158,11,0.08); }
+  .source-btn .src-icon { font-size: 22px; margin-bottom: 6px; }
+  .source-btn .src-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .source-btn .src-desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  .tip { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 16px 18px; font-size: 13px; color: var(--text-mid); line-height: 1.8; }
+  .tip strong { color: var(--amber); }
+  .tip a { color: var(--amber); }
+
+  .subtitle-area {
+    background: #000; border-radius: 14px; padding: 36px 40px 32px;
+    min-height: 180px; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px;
+    position: relative; border: 1px solid var(--border);
+  }
+  .subtitle-en { font-size: 24px; line-height: 1.55; color: #fff; font-weight: 400; min-height: 37px; }
+  .subtitle-zh { font-size: 21px; line-height: 1.55; color: var(--amber); font-weight: 300; min-height: 33px; }
+  .subtitle-dim { opacity: 0.35; }
+
+  .status-badge {
+    position: absolute; top: 16px; right: 18px;
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  .dot.rec  { background: #ef4444; animation: blink 1.2s ease-in-out infinite; }
+  .dot.proc { background: var(--amber); animation: blink 0.7s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  .timer { position: absolute; top: 16px; left: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); }
+
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-start { flex: 1; min-width: 140px; padding: 16px; background: var(--amber); color: #000; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+  .btn-start:hover { background: #fbbf24; transform: translateY(-1px); }
+  .btn-stop  { flex: 1; min-width: 140px; padding: 16px; background: transparent; color: #fca5a5; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; cursor: pointer; transition: all 0.2s; display: none; }
+  .btn-stop:hover { background: rgba(239,68,68,0.1); }
+  .btn-dl  { padding: 16px 20px; background: var(--bg2); color: var(--text); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .btn-dl:hover:not(:disabled) { border-color: var(--text-mid); }
+  .btn-dl:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-mp3 { padding: 16px 20px; background: rgba(34,197,94,0.08); color: var(--green); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: none; }
+  .btn-mp3:hover:not(:disabled) { background: rgba(34,197,94,0.15); }
+  .btn-mp3:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mp3-progress-wrap { display: none; flex-direction: column; gap: 8px; }
+  .mp3-progress-wrap.visible { display: flex; }
+  .mp3-progress-label { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  .mp3-progress-bar { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+  .mp3-progress-fill { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.2s; width: 0%; }
+
+  .log-header { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 12px; padding: 0 12px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .log-header span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .log-wrap { max-height: 380px; overflow-y: auto; }
+  .log-wrap::-webkit-scrollbar { width: 4px; }
+  .log-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  .log-entry { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 12px; padding: 10px 12px; border-radius: 8px; transition: background 0.15s; align-items: start; }
+  .log-entry:hover { background: var(--bg3); }
+  .log-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--amber); padding-top: 2px; }
+  .log-en { font-size: 13px; line-height: 1.7; color: var(--text); }
+  .log-zh { font-size: 13px; line-height: 1.7; color: var(--text-mid); }
+  .log-empty { text-align: center; padding: 36px 16px; font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+  .key-row { display: flex; gap: 10px; align-items: center; }
+  .key-label { font-size: 12px; color: var(--text-dim); width: 110px; flex-shrink: 0; }
+  .key-input { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.2s; }
+  .key-input:focus { border-color: var(--amber); }
+  .btn-save { background: var(--amber); color: #000; border: none; border-radius: 8px; padding: 8px 18px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; }
+
+  .seg-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .seg-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-mid); transition: all 0.2s; }
+  .seg-btn.active { border-color: var(--amber); color: var(--amber); background: rgba(245,158,11,0.08); }
+
+  .mp3-toggle-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; user-select: none; }
+  .mp3-toggle-row:hover { border-color: var(--text-dim); }
+  .mp3-toggle-row.on { border-color: var(--green); background: rgba(34,197,94,0.06); }
+  .toggle-switch { width: 36px; height: 20px; background: var(--border); border-radius: 99px; position: relative; transition: background 0.2s; flex-shrink: 0; }
+  .toggle-switch::after { content:''; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+  .mp3-toggle-row.on .toggle-switch { background: var(--green); }
+  .mp3-toggle-row.on .toggle-switch::after { transform: translateX(16px); }
+  .mp3-toggle-text strong { display: block; font-size: 13px; color: var(--text); font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 3px; }
+  .mp3-toggle-text span { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+
+  footer { text-align: center; padding: 20px; font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🎬</div>
+  <h1>即時雙語字幕</h1>
+  <span>Live Transcript v1.1</span>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="card-title">音訊來源</div>
+    <div class="source-toggle">
+      <button class="source-btn" id="src-screen" onclick="selectSource('screen')">
+        <div class="src-icon">🖥️</div>
+        <div class="src-name">電腦聲音</div>
+        <div class="src-desc">錄製 Teams / 任何程式的聲音，分享螢幕時選取</div>
+      </button>
+      <button class="source-btn active" id="src-mic" onclick="selectSource('mic')">
+        <div class="src-icon">🎙️</div>
+        <div class="src-name">麥克風</div>
+        <div class="src-desc">實體會議、錄音筆旁收音，直接授權麥克風即可</div>
+      </button>
+      <button class="source-btn" id="src-both" onclick="selectSource('both')">
+        <div class="src-icon">🖥️＋🎙️</div>
+        <div class="src-name">兩者混合</div>
+        <div class="src-desc">電腦聲音 + 麥克風同時收，適合視訊＋你也說話</div>
+      </button>
+    </div>
+    <div class="tip" id="sourceTip" style="margin-top:14px;">
+      <strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器會請求麥克風權限，允許即可。無需分享螢幕。本工具不需 Netlify，存到桌面用 Chrome 直接開即可。
+    </div>
+  </div>
+
+  <div class="subtitle-area">
+    <div class="timer" id="timer">00:00</div>
+    <div class="status-badge">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">待機中</span>
+    </div>
+    <div class="subtitle-en subtitle-dim" id="subtitleEn">按「開始錄製」後字幕將出現在這裡</div>
+    <div class="subtitle-zh subtitle-dim" id="subtitleZh">Subtitles will appear here after you start</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-start" id="btnStart" onclick="startCapture()">▶ 開始錄製</button>
+    <button class="btn-stop"  id="btnStop"  onclick="stopCapture()">⏹ 停止</button>
+    <button class="btn-dl"    id="btnDl"    onclick="downloadTxt()" disabled>📥 下載 .txt</button>
+    <button class="btn-mp3"   id="btnMp3"   onclick="downloadWebm()" style="display:none">🎙️ 下載 WebM</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">完整逐字稿</div>
+    <div class="log-header">
+      <span>時間</span><span>原文（英文）</span><span>中文翻譯</span>
+    </div>
+    <div class="log-wrap" id="logWrap">
+      <div class="log-empty" id="logEmpty">逐字稿將在這裡累積…</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">設定</div>
+
+    <div style="margin-bottom:20px;">
+      <div class="card-title" style="font-size:11px;margin-bottom:8px;">OpenAI API Key
+        <span style="font-family:'JetBrains Mono';font-size:10px;color:var(--amber);letter-spacing:0;text-transform:none;font-weight:400;margin-left:8px;">存在本機瀏覽器，不會上傳</span>
+      </div>
+      <div class="key-row">
+        <span class="key-label">OpenAI Key</span>
+        <input class="key-input" type="password" id="inputOpenaiKey" placeholder="sk-...">
+        <button class="btn-save" onclick="saveKey()">儲存</button>
+      </div>
+      <div id="saveStatus" style="font-size:12px;color:var(--green);margin-top:8px;display:none;">✓ 已儲存</div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div class="card-title" style="font-size:11px;margin-bottom:8px;">每段辨識長度（越短延遲越低，準確度稍差）</div>
+      <div class="seg-row">
+        <button class="seg-btn" onclick="setSeg(5000,this)">5 秒</button>
+        <button class="seg-btn active" onclick="setSeg(8000,this)">8 秒（預設）</button>
+        <button class="seg-btn" onclick="setSeg(12000,this)">12 秒</button>
+        <button class="seg-btn" onclick="setSeg(18000,this)">18 秒</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="card-title" style="font-size:11px;margin-bottom:8px;">同時錄製 WebM 音訊</div>
+      <div class="mp3-toggle-row" id="mp3ToggleRow" onclick="toggleMp3()">
+        <div class="toggle-switch" id="mp3Switch"></div>
+        <div class="mp3-toggle-text">
+          <strong id="mp3ToggleLabel">關閉 — 只做逐字稿</strong>
+          <span id="mp3ToggleDesc">開啟後，會議期間同時在本機錄製完整音訊。停止後點「下載 WebM」，直接下載，不需編碼，不額外上傳任何音訊。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>音訊傳送至 OpenAI Whisper 轉錄 · 翻譯由 GPT-4o-mini 處理 · WebM 錄音僅存在本機</footer>
+
+<script>
+// ── Key ──────────────────────────────────────────────────────
+function getKey() { return localStorage.getItem('live_openai_key') || ''; }
+function saveKey() {
+  const v = document.getElementById('inputOpenaiKey').value.trim();
+  if (v) localStorage.setItem('live_openai_key', v);
+  const s = document.getElementById('saveStatus');
+  s.style.display = 'block';
+  setTimeout(() => s.style.display = 'none', 2000);
+}
+(function init() {
+  const k = localStorage.getItem('live_openai_key') || localStorage.getItem('meeting_openai') || '';
+  if (k) document.getElementById('inputOpenaiKey').value = k;
+})();
+
+// ── Source selector ───────────────────────────────────────────
+let audioSource = 'mic';
+const tipTexts = {
+  screen: '<strong>🖥️ 電腦聲音模式：</strong>點「開始錄製」後 Chrome 會請你選分享視窗，選 Teams 或整個螢幕，並勾選底部「<strong>也分享音訊 / Share audio</strong>」。<br>⚠️ Windows 直接可用；Mac 需先安裝 <a href="https://existential.audio/blackhole/" target="_blank">BlackHole</a> 虛擬音效卡。',
+  mic:    '<strong>🎙️ 麥克風模式：</strong>直接點「開始錄製」，瀏覽器請求麥克風權限，允許即可。適合實體會議或把 iPad 喇叭對著桌電麥克風收音。',
+  both:   '<strong>🖥️＋🎙️ 混合模式：</strong>同時收電腦聲音（Teams 對方）和麥克風（你說話）。Chrome 先請你選分享視窗並勾選「也分享音訊」，再自動取得麥克風，兩路混音後一起辨識。'
+};
+function selectSource(src) {
+  audioSource = src;
+  ['screen','mic','both'].forEach(s => document.getElementById('src-'+s).classList.toggle('active', s===src));
+  document.getElementById('sourceTip').innerHTML = tipTexts[src];
+}
+
+// ── WebM toggle ───────────────────────────────────────────────
+let recordMp3 = false;
+function toggleMp3() {
+  recordMp3 = !recordMp3;
+  document.getElementById('mp3ToggleRow').classList.toggle('on', recordMp3);
+  document.getElementById('mp3ToggleLabel').textContent = recordMp3 ? '開啟 — 同時錄製 WebM' : '關閉 — 只做逐字稿';
+  document.getElementById('mp3ToggleDesc').textContent  = recordMp3
+    ? '會議結束後點「下載 WebM」，瀏覽器直接下載，不需編碼，不額外上傳任何音訊。'
+    : '開啟後，會議期間同時在本機錄製完整音訊。停止後點「下載 WebM」，直接下載，不需編碼，不額外上傳任何音訊。';
+}
+
+// ── Segment length ────────────────────────────────────────────
+let SEGMENT_MS = 8000;
+function setSeg(ms, btn) {
+  SEGMENT_MS = ms;
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── State ─────────────────────────────────────────────────────
+let mediaStream   = null;
+let mediaRecorder = null;
+let audioChunks   = [];
+let fullRecorder  = null;
+let fullChunks    = [];
+let isRecording   = false;
+let segmentTimer  = null;
+let startTime     = null;
+let segmentStart  = null;
+let timerInterval = null;
+let logEntries    = [];
+
+// ── UI helpers ────────────────────────────────────────────────
+function setStatus(type, text) {
+  const dot  = document.getElementById('statusDot');
+  const span = document.getElementById('statusText');
+  dot.className    = 'dot' + (type ? ' '+type : '');
+  span.textContent = text;
+  span.style.color = type==='rec' ? '#ef4444' : type==='proc' ? 'var(--amber)' : 'var(--text-dim)';
+}
+function setSubtitle(en, zh, dim) {
+  const elEn = document.getElementById('subtitleEn');
+  const elZh = document.getElementById('subtitleZh');
+  if (en !== null) elEn.textContent = en;
+  if (zh !== null) elZh.textContent = zh;
+  elEn.classList.toggle('subtitle-dim', !!dim);
+  elZh.classList.toggle('subtitle-dim', !!dim);
+}
+function formatTime(ms) {
+  const s = Math.floor(Math.max(0, ms) / 1000);
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+function startTimer() {
+  timerInterval = setInterval(() => {
+    if (startTime) document.getElementById('timer').textContent = formatTime(Date.now()-startTime);
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+
+function addLogRow(timeMs, en, zh) {
+  const wrap  = document.getElementById('logWrap');
+  const empty = document.getElementById('logEmpty');
+  if (empty) empty.remove();
+  const t = formatTime(timeMs);
+  logEntries.push({ time: t, en, zh });
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<div class="log-time">${t}</div><div class="log-en">${esc(en)}</div><div class="log-zh">${esc(zh)}</div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── MIME helpers ──────────────────────────────────────────────
+function bestMime() {
+  const c = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+  return c.find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+function mimeExt(mime) {
+  if (!mime) return 'webm';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('mp4')) return 'mp4';
+  return 'webm';
+}
+
+// ── Start capture ─────────────────────────────────────────────
+async function startCapture() {
+  const key = getKey();
+  if (!key) { alert('請先在下方填入 OpenAI API Key 並按「儲存」。'); return; }
+
+  try {
+    let tracks = [];
+
+    if (audioSource === 'mic' || audioSource === 'both') {
+      const mic = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
+      });
+      tracks = tracks.concat(mic.getAudioTracks());
+    }
+
+    if (audioSource === 'screen' || audioSource === 'both') {
+      const scr = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal:1, max:1 }, width:1, height:1 },
+        audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 16000 }
+      });
+      scr.getVideoTracks().forEach(t => t.stop());
+      if (!scr.getAudioTracks().length) {
+        alert('沒有偵測到音訊！\n請確認分享畫面時，底部有勾選「也分享音訊（Share audio）」。');
+        scr.getTracks().forEach(t => t.stop());
+        tracks.forEach(t => t.stop());
+        return;
+      }
+      tracks = tracks.concat(scr.getAudioTracks());
+      scr.getAudioTracks()[0].addEventListener('ended', stopCapture);
+    }
+
+    if (audioSource === 'both' && tracks.length >= 2) {
+      const ctx  = new AudioContext({ sampleRate: 16000 });
+      const dest = ctx.createMediaStreamDestination();
+      tracks.forEach(t => ctx.createMediaStreamSource(new MediaStream([t])).connect(dest));
+      mediaStream = dest.stream;
+    } else {
+      mediaStream = new MediaStream(tracks);
+    }
+
+    isRecording = true;
+    startTime   = Date.now();
+    logEntries  = [];
+    fullChunks  = [];
+
+    document.getElementById('btnStart').style.display = 'none';
+    document.getElementById('btnStop').style.display  = 'block';
+    document.getElementById('btnDl').disabled = true;
+    document.getElementById('btnMp3').style.display = 'none';
+    document.getElementById('logWrap').innerHTML = '<div class="log-empty" id="logEmpty">辨識中，請稍候第一段字幕…</div>';
+
+    setStatus('rec', '錄製中');
+    setSubtitle('', '', false);
+    startTimer();
+
+    if (recordMp3) {
+      const mime = bestMime();
+      fullRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+      fullRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) fullChunks.push(e.data); };
+      fullRecorder.start(500);
+    }
+
+    launchSegment();
+
+  } catch (e) {
+    if (e.name === 'NotAllowedError') alert('需要權限。\n麥克風或螢幕分享遭拒，請點選允許後再試。');
+    else alert('啟動失敗：' + e.message);
+  }
+}
+
+// ── Segment loop ──────────────────────────────────────────────
+function launchSegment() {
+  if (!isRecording) return;
+  audioChunks  = [];
+  segmentStart = Date.now() - startTime;
+  const mime = bestMime();
+  mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+    const at   = segmentStart;
+    processSegment(blob, at).finally(() => { if (isRecording) launchSegment(); });
+  };
+  mediaRecorder.start(300);
+  segmentTimer = setTimeout(() => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+  }, SEGMENT_MS);
+}
+
+// ── Process one segment ───────────────────────────────────────
+async function processSegment(blob, elapsedAtStart) {
+  if (blob.size < 4000) return;
+  setStatus('proc', '辨識中…');
+  try {
+    const key = getKey();
+    const ext = mimeExt(blob.type);
+
+    const form = new FormData();
+    form.append('file', blob, `seg.${ext}`);
+    form.append('model', 'whisper-1');
+    form.append('prompt', 'This is an international meeting. Transcribe faithfully, preserving English technical terms.');
+
+    const wRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}` },
+      body: form
+    });
+    if (!wRes.ok) {
+      if (wRes.status === 400) { setStatus('rec','錄製中'); return; }
+      const err = await wRes.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `Whisper ${wRes.status}`);
+    }
+    const { text } = await wRes.json();
+    const en = text.trim();
+    if (!en) { setStatus('rec','錄製中'); return; }
+
+    setSubtitle(en, '翻譯中…', false);
+
+    const tRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', max_tokens: 400,
+        messages: [
+          { role: 'system', content: '你是專業口譯員。將英文翻譯為繁體中文（台灣慣用語）。金融監理、審計、IFRS 等專有名詞請保留英文縮寫並附中文。只輸出翻譯結果。' },
+          { role: 'user', content: en }
+        ]
+      })
+    });
+    let zh = '';
+    if (tRes.ok) {
+      const td = await tRes.json();
+      zh = td.choices?.[0]?.message?.content?.trim() || '';
+    }
+    setSubtitle(en, zh || '（翻譯失敗）', false);
+    addLogRow(elapsedAtStart, en, zh);
+  } catch (e) {
+    console.error('[processSegment]', e.message);
+  }
+  if (isRecording) setStatus('rec', '錄製中');
+}
+
+// ── Stop capture ──────────────────────────────────────────────
+function stopCapture() {
+  if (!isRecording) return;
+  isRecording = false;
+  clearTimeout(segmentTimer);
+  stopTimer();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (fullRecorder  && fullRecorder.state  !== 'inactive') fullRecorder.stop();
+  if (mediaStream)  { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+
+  document.getElementById('btnStart').style.display = '';
+  document.getElementById('btnStop').style.display  = 'none';
+  document.getElementById('btnDl').disabled = logEntries.length === 0;
+  if (recordMp3 && fullChunks.length > 0) {
+    document.getElementById('btnMp3').style.display = '';
+  }
+  setStatus('', '已停止');
+  document.getElementById('subtitleEn').classList.add('subtitle-dim');
+  document.getElementById('subtitleZh').classList.add('subtitle-dim');
+}
+
+// ── Download WebM ─────────────────────────────────────────────
+function downloadWebm() {
+  if (!fullChunks.length) return;
+  const mime = (fullChunks[0] && fullChunks[0].type) ? fullChunks[0].type : 'audio/webm';
+  const blob = new Blob(fullChunks, { type: mime });
+  const ext  = mimeExt(mime);
+  const date = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' }).replace(/\//g,'-');
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `會議錄音_${date}.${ext}`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Download TXT ──────────────────────────────────────────────
+function downloadTxt() {
+  if (!logEntries.length) return;
+  const date   = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
+  const header = `即時雙語逐字稿\n日期：${date}\n${'─'.repeat(50)}\n\n`;
+  const body   = logEntries.map(e => `[${e.time}]\n${e.en}\n${e.zh}\n`).join('\n');
+  const blob   = new Blob([header + body], { type: 'text/plain;charset=utf-8' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href = url; a.download = `逐字稿_${date.replace(/\//g,'-')}.txt`; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
