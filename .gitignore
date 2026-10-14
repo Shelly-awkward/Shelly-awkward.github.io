@@ -1,0 +1,11 @@
+# API 金鑰永遠不進 repo（此頁面本來就不需要任何金鑰檔，這只是保險）
+keys/
+*_api.txt
+*api*.txt
+*.key
+.env
+.env.*
+# 本機暫存
+.claude/
+*.webm
+*.m4a
