@@ -1,7 +1,7 @@
 {
   "name": "直播會議 → 逐字稿 → 會議報告",
   "short_name": "會議逐字稿",
-  "start_url": "./live_meeting.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#18113d",
   "theme_color": "#18113d",
