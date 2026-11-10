@@ -160,9 +160,9 @@
   <div class="row">
     <span class="lbl">辨識服務</span>
     <select id="refineProvider">
-      <option value="aai">AssemblyAI universal-3.5-pro（講者分離＋術語表，單檔上傳）</option>
-      <option value="oai-diar">OpenAI gpt-4o-transcribe-diarize（講者分離，20 分鐘分段）</option>
-      <option value="oai-txt">OpenAI gpt-transcribe（無講者，支援術語，20 分鐘分段）</option>
+      <option value="aai">AssemblyAI（講者分離，大檔可，上傳檔首選）</option>
+      <option value="oai-diar">OpenAI 講者分離（單檔限 25 MB、23 分鐘）</option>
+      <option value="oai-txt">OpenAI gpt-transcribe（專有名詞最準，無講者，限 25 MB）</option>
     </select>
     <span class="lbl">語言（直播草稿與精修共用）</span>
     <select id="refineLang">
@@ -171,7 +171,7 @@
       <option value="zh">中文</option>
     </select>
     <button class="primary" id="btnRefine" onclick="runRefine()" disabled>🔬 開始精修</button>
-    <label style="font-size:13px;color:var(--text);cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px">📂 上傳既有錄音檔 <input type="file" id="fileRec" accept="audio/*,video/*,.webm,.mp3,.m4a,.wav,.mp4,.aac,.ogg,.flac" style="display:none" onchange="useUploadedFile(this.files[0]); this.value=''"></label>
+    <label style="font-size:13px;color:var(--text);cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px">📂 上傳既有錄音檔 <input type="file" id="fileRec" accept="audio/*,video/*,.webm,.mp3,.m4a,.wav,.mp4,.aac,.ogg,.flac" style="display:none" onclick="this.value=''" onchange="useUploadedFile(this.files[0])"></label>
   </div>
   <div class="row" style="align-items:flex-start">
     <span class="lbl" style="padding-top:8px">術語表</span>
@@ -600,25 +600,59 @@ function downloadDraft() { if (!draftRows.length) return; dl(new Blob([`即時�
 
 // ═══════════════════════ 批次精修 ═══════════════════════
 let refinedLines = [];       // { s, e, spk, text }  時間 ms
+// 瀏覽器自己量檔案長度（秒）；量不到回 null。用來避開各家的長度上限，也放進錯誤訊息幫忙判斷
+function mediaDuration(blob) {
+  return new Promise(res => {
+    try {
+      const a = document.createElement('audio'), u = URL.createObjectURL(blob);
+      const done = v => { URL.revokeObjectURL(u); res(Number.isFinite(v) && v > 0 ? v : null); };
+      a.preload = 'metadata'; a.onloadedmetadata = () => done(a.duration); a.onerror = () => done(null);
+      setTimeout(() => done(null), 5000); a.src = u;
+    } catch { res(null); }
+  });
+}
+const REFINE_NAME = { 'aai':'AssemblyAI', 'oai-txt':'OpenAI gpt-transcribe', 'oai-diar':'OpenAI 講者分離' };
+let refineDiag = '';
 async function runRefine() {
   if (!fullBlob && !segBlobs.length) { alert('沒有錄音。'); return; }
-  let prov = $('refineProvider').value; const lang = $('refineLang').value;
+  const prov = $('refineProvider').value, lang = $('refineLang').value;
   $('btnRefine').disabled = true; refinedLines = []; $('tx').innerHTML = '';
+  const notes = [];
   try {
-    // 自動改道：選的那家沒金鑰、或 OpenAI 單檔超過 25 MB，就換有金鑰的另一家
-    const tooBig = !segBlobs.length && fullBlob && fullBlob.size > 25 * 1048576;
-    if (prov !== 'aai' && (!key.openai() || tooBig) && key.aai()) { dbg('refine reroute to aai', tooBig ? 'file > 25MB' : 'no openai key'); prov = 'aai'; }
-    else if (prov === 'aai' && !key.aai() && key.openai() && !tooBig) { dbg('refine reroute to openai (no aai key)'); prov = 'oai-diar'; }
-    if (prov !== 'aai' && tooBig) throw new Error(`檔案 ${(fullBlob.size/1048576).toFixed(0)} MB 超過 OpenAI 單檔 25 MB 上限。請填 AssemblyAI Key（可收大檔），或先把檔案壓小。`);
-    if (prov === 'aai') await refineAai(lang);
-    else await refineOpenai(prov, lang);
+    const single = !segBlobs.length && fullBlob;                       // 上傳的檔案（不是錄製時切好的 20 分鐘分段）
+    const tooBig = single && fullBlob.size > 25 * 1048576;             // OpenAI 單檔 25 MB 上限
+    const dur = single ? await mediaDuration(fullBlob) : null;
+    const tooLongForDiar = dur && dur > 1380;                          // OpenAI 講者分離模型單檔上限 1400 秒
+    dbg('refine start', prov, lang, single ? `${(fullBlob.size/1048576).toFixed(1)}MB type=${fullBlob.type || '?'} dur=${dur ? Math.round(dur) + 's' : '?'}` : `${segBlobs.length} segs`);
+    // 選定的那家優先，其餘當備援；沒金鑰或超過該家上限的直接跳過
+    const order = [prov, ...['aai', 'oai-txt', 'oai-diar'].filter(x => x !== prov)].filter(pv => {
+      if (pv === 'aai') return !!key.aai();
+      if (!key.openai()) return false;
+      if (tooBig) { notes.push(`${REFINE_NAME[pv]}：檔案超過 25 MB 上限，跳過`); return false; }
+      if (pv === 'oai-diar' && tooLongForDiar) { notes.push(`${REFINE_NAME[pv]}：音檔超過 23 分鐘上限，跳過`); return false; }
+      return true;
+    });
+    if (!order.length) throw new Error(notes.length ? notes.join('；') + '。請填 AssemblyAI Key（可收大檔）。' : '請先在設定填 AssemblyAI 或 OpenAI 金鑰');
     // AssemblyAI 中英混合模式會在中文字之間插空白；清掉後再做簡轉繁
-    const reCjkSpace = /([㐀-鿿　-〿＀-￯])\s+(?=[㐀-鿿　-〿＀-￯])/g;
-    refinedLines.forEach(l => { l.text = tw((l.text || '').replace(reCjkSpace, '$1').trim()); });
-    refinedLines = refinedLines.filter(l => l.text);
-    if (!refinedLines.length) throw new Error('辨識結果是空的（檔案可能沒有人聲，或格式不支援）');
+    const reCjkSpace = /([\u3400-\u9fff\u3000-\u303f\uff00-\uffef])\s+(?=[\u3400-\u9fff\u3000-\u303f\uff00-\uffef])/g;
+    let used = '';
+    for (const pv of order) {
+      refinedLines = []; refineDiag = '';
+      try {
+        if (pv === 'aai') await refineAai(lang); else await refineOpenai(pv, lang);
+        refinedLines.forEach(l => { l.text = tw((l.text || '').replace(reCjkSpace, '$1').trim()); });
+        refinedLines = refinedLines.filter(l => l.text);
+        if (refinedLines.length) { used = pv; break; }
+        notes.push(`${REFINE_NAME[pv]}：回傳空白${refineDiag}`);
+      } catch (e) { notes.push(`${REFINE_NAME[pv]}：${String(e.message).slice(0, 140)}`); }
+      dbg('refine provider gave nothing', notes[notes.length - 1]);
+    }
+    if (!used) {
+      const info = single ? `檔案 ${fullBlob.name || ''} ${(fullBlob.size/1048576).toFixed(1)} MB、${dur ? '長度 ' + fmt(dur * 1000) : '瀏覽器讀不出長度（格式可能不支援或檔案損壞）'}` : '';
+      throw new Error(`各家都沒有辨識出文字。${notes.join('；')}。${info}`);
+    }
     renderTranscript();
-    setProg('refine', 100, `完成：${refinedLines.length} 句`);
+    setProg('refine', 100, `完成：${refinedLines.length} 句（${REFINE_NAME[used]}${notes.length ? '；' + notes.join('；') : ''}）`);
     $('btnDlTx').disabled = false; $('btnReport').disabled = false;
   } catch (e) { dbg('refine fail', e.message); setProg('refine', 0, '失敗：' + e.message); alert('精修失敗：' + e.message); }
   $('btnRefine').disabled = false;
@@ -631,25 +665,30 @@ async function refineAai(lang) {
   if (!up.ok) throw new Error('上傳失敗 ' + up.status + ' ' + (await up.text()).slice(0, 200));
   const { upload_url } = await up.json();
   const base = { audio_url: upload_url, speech_models:['universal-3-5-pro','universal-2'], speaker_labels:true, punctuate:true, format_text:true, keyterms_prompt: glossaryList().slice(0, 500) };
-  const variants = lang === 'en' ? [{ language_code:'en' }] : lang === 'zh' ? [{ language_code:'zh' }, { language_detection:true }] : [{ language_codes:['en','zh'] }, { language_detection:true }];
-  let id = null, lastErr = '';
-  for (const v of variants) {
+  const variants = lang === 'en' ? [{ language_code:'en' }, { language_detection:true }] : lang === 'zh' ? [{ language_code:'zh' }, { language_detection:true }] : [{ language_codes:['en','zh'] }, { language_detection:true }];
+  // 一種語言設定送出失敗、轉錄出錯或回傳空白，就用下一種設定再試（音檔已上傳，不用重傳）
+  let lastErr = '';
+  for (let vi = 0; vi < variants.length; vi++) {
+    const v = variants[vi];
     const r = await fetch('https://api.assemblyai.com/v2/transcript', { method:'POST', headers:{ ...H, 'Content-Type':'application/json' }, body: JSON.stringify({ ...base, ...v }) });
-    const j = await r.json(); if (r.ok && j.id) { id = j.id; dbg('aai submitted', v); break; } lastErr = j.error || r.status; dbg('aai submit variant failed', v, lastErr);
-  }
-  if (!id) throw new Error('送出轉錄失敗：' + lastErr);
-  const t0 = Date.now();
-  for (;;) {
-    await sleep(5000);
-    const r = await fetch('https://api.assemblyai.com/v2/transcript/' + id, { headers: H }); const j = await r.json();
-    setProg('refine', 15 + Math.min(80, (Date.now()-t0)/1000/6), `AssemblyAI ${j.status}… 已等 ${fmt(Date.now()-t0)}`);
-    if (j.status === 'completed') {
-      refinedLines = (j.utterances || []).map(u => ({ s:u.start, e:u.end, spk:'Speaker ' + u.speaker, text:u.text }));
-      if (!refinedLines.length && j.text) refinedLines = [{ s:0, e:0, spk:'', text:j.text }];
-      return;
+    const sj = await r.json();
+    if (!r.ok || !sj.id) { lastErr = sj.error || r.status; dbg('aai submit variant failed', v, lastErr); continue; }
+    dbg('aai submitted', v);
+    const t0 = Date.now();
+    for (;;) {
+      await sleep(5000);
+      const j = await (await fetch('https://api.assemblyai.com/v2/transcript/' + sj.id, { headers: H })).json();
+      setProg('refine', 15 + Math.min(80, (Date.now()-t0)/1000/6), `AssemblyAI ${j.status}… 已等 ${fmt(Date.now()-t0)}` + (vi ? '（改用自動語言偵測重試）' : ''));
+      if (j.status === 'error') { lastErr = j.error; dbg('aai transcript error', v, j.error); break; }
+      if (j.status !== 'completed') continue;
+      refineDiag = `（服務端量到音檔 ${j.audio_duration ?? '?'} 秒、語言 ${j.language_code || '?'}）`;
+      refinedLines = (j.utterances || []).filter(u => (u.text || '').trim()).map(u => ({ s:u.start, e:u.end, spk:'Speaker ' + u.speaker, text:u.text }));
+      if (!refinedLines.length && (j.text || '').trim()) refinedLines = [{ s:0, e:0, spk:'', text:j.text }];
+      if (refinedLines.length) return;
+      dbg('aai completed but empty', v, refineDiag); lastErr = ''; break;
     }
-    if (j.status === 'error') throw new Error(j.error);
   }
+  if (lastErr) throw new Error('AssemblyAI：' + lastErr);
 }
 async function refineOpenai(prov, lang) {
   if (!key.openai()) throw new Error('請先填 OpenAI Key');
