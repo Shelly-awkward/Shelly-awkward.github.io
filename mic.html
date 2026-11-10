@@ -171,7 +171,7 @@
       <option value="zh">中文</option>
     </select>
     <button class="primary" id="btnRefine" onclick="runRefine()" disabled>🔬 開始精修</button>
-    <label style="font-size:13px;color:var(--mid);cursor:pointer">📂 或上傳既有錄音檔 <input type="file" id="fileRec" accept="audio/*,video/*,.webm,.mp3,.m4a,.wav,.mp4" style="display:none" onchange="useUploadedFile(this.files[0])"></label>
+    <label style="font-size:13px;color:var(--text);cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px">📂 上傳既有錄音檔 <input type="file" id="fileRec" accept="audio/*,video/*,.webm,.mp3,.m4a,.wav,.mp4,.aac,.ogg,.flac" style="display:none" onchange="useUploadedFile(this.files[0]); this.value=''"></label>
   </div>
   <div class="row" style="align-items:flex-start">
     <span class="lbl" style="padding-top:8px">術語表</span>
@@ -257,7 +257,7 @@ function setProg(id, pct, label) { const p = $(id+'Prog'); p.classList.toggle('s
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // 簡轉繁保險（OpenCC cn→台灣用語）：模型偶爾吐簡體，所有中文輸出都過一遍；函式庫沒載到就原樣回傳
 let _twConv = null;
-function tw(s) { if (!s) return s; try { if (!_twConv && window.OpenCC) _twConv = OpenCC.Converter({ from:'cn', to:'twp' }); return _twConv ? _twConv(s) : s; } catch { return s; } }
+function tw(s) { if (!s) return s; try { if (!_twConv && window.OpenCC) _twConv = OpenCC.Converter({ from:'cn', to:'tw' }); return _twConv ? _twConv(s) : s; } catch { return s; } }
 function glossaryList() { return $('glossary').value.split(/[,，\n]/).map(s => s.trim()).filter(Boolean); }
 
 // ── 設定 ──
@@ -447,7 +447,22 @@ async function stopAll() {
   if ($('optAuto').checked) { await runRefine(); if (refinedLines.length) await runReport(); }
 }
 function downloadRecording() { if (fullBlob) dl(fullBlob, `會議錄音_${today()}.${fullBlob.type.includes('mp4') ? 'm4a' : 'webm'}`); }
-function useUploadedFile(f) { if (!f) return; fullBlob = f; segBlobs = []; $('btnDlRec').disabled = false; $('btnRefine').disabled = false; $('srcInfo').textContent = `已載入檔案 ${f.name}（${(f.size/1048576).toFixed(1)} MB）`; }
+async function useUploadedFile(f) {
+  if (!f) return;
+  if (isRecording) { alert('錄製中，請先停止再上傳檔案。'); return; }
+  fullBlob = f; segBlobs = []; $('btnDlRec').disabled = false; $('btnRefine').disabled = false;
+  const mb = (f.size / 1048576).toFixed(1);
+  $('srcInfo').textContent = `已載入檔案 ${f.name}（${mb} MB）`;
+  setProg('refine', 0, `已載入 ${f.name}（${mb} MB）` + ($('optAuto').checked ? '，自動開始精修…' : '，請按「開始精修」'));
+  if ($('optAuto').checked) { await runRefine(); if (refinedLines.length) await runReport(); }
+}
+// 上傳給 API 用的檔名：副檔名必須與實際格式相符（OpenAI 靠副檔名判斷，錯了會回「檔案損毀」）
+function blobName(b) {
+  if (b.name && /\.[A-Za-z0-9]{2,5}$/.test(b.name)) return 'audio' + b.name.slice(b.name.lastIndexOf('.')).toLowerCase();
+  const t = (b.type || '').toLowerCase();
+  const ext = t.includes('webm') ? 'webm' : (t.includes('mp4') || t.includes('m4a') || t.includes('aac')) ? 'm4a' : (t.includes('mpeg') || t.includes('mp3')) ? 'mp3' : t.includes('wav') ? 'wav' : t.includes('ogg') ? 'ogg' : t.includes('flac') ? 'flac' : 'webm';
+  return 'audio.' + ext;
+}
 
 // ═══════════════════════ 即時草稿（OpenAI Realtime WS） ═══════════════════════
 let ws = null, wsReady = false, wsRetries = 0, liveMode = 'ws';
@@ -587,12 +602,21 @@ function downloadDraft() { if (!draftRows.length) return; dl(new Blob([`即時�
 let refinedLines = [];       // { s, e, spk, text }  時間 ms
 async function runRefine() {
   if (!fullBlob && !segBlobs.length) { alert('沒有錄音。'); return; }
-  const prov = $('refineProvider').value, lang = $('refineLang').value;
+  let prov = $('refineProvider').value; const lang = $('refineLang').value;
   $('btnRefine').disabled = true; refinedLines = []; $('tx').innerHTML = '';
   try {
+    // 自動改道：選的那家沒金鑰、或 OpenAI 單檔超過 25 MB，就換有金鑰的另一家
+    const tooBig = !segBlobs.length && fullBlob && fullBlob.size > 25 * 1048576;
+    if (prov !== 'aai' && (!key.openai() || tooBig) && key.aai()) { dbg('refine reroute to aai', tooBig ? 'file > 25MB' : 'no openai key'); prov = 'aai'; }
+    else if (prov === 'aai' && !key.aai() && key.openai() && !tooBig) { dbg('refine reroute to openai (no aai key)'); prov = 'oai-diar'; }
+    if (prov !== 'aai' && tooBig) throw new Error(`檔案 ${(fullBlob.size/1048576).toFixed(0)} MB 超過 OpenAI 單檔 25 MB 上限。請填 AssemblyAI Key（可收大檔），或先把檔案壓小。`);
     if (prov === 'aai') await refineAai(lang);
     else await refineOpenai(prov, lang);
-    refinedLines.forEach(l => { l.text = tw(l.text); });
+    // AssemblyAI 中英混合模式會在中文字之間插空白；清掉後再做簡轉繁
+    const reCjkSpace = /([㐀-鿿　-〿＀-￯])\s+(?=[㐀-鿿　-〿＀-￯])/g;
+    refinedLines.forEach(l => { l.text = tw((l.text || '').replace(reCjkSpace, '$1').trim()); });
+    refinedLines = refinedLines.filter(l => l.text);
+    if (!refinedLines.length) throw new Error('辨識結果是空的（檔案可能沒有人聲，或格式不支援）');
     renderTranscript();
     setProg('refine', 100, `完成：${refinedLines.length} 句`);
     $('btnDlTx').disabled = false; $('btnReport').disabled = false;
@@ -630,12 +654,12 @@ async function refineAai(lang) {
 async function refineOpenai(prov, lang) {
   if (!key.openai()) throw new Error('請先填 OpenAI Key');
   let parts = segBlobs.length ? segBlobs : [{ blob: fullBlob, startMs: 0 }];
-  if (parts.some(p => p.blob.size > 25 * 1048576)) throw new Error('OpenAI 單檔上限 25 MB，上傳的檔案太大；請改用 AssemblyAI，或用錄製時的 20 分鐘分段。');
+  if (parts.some(p => p.blob.size > 25 * 1048576)) throw new Error('OpenAI 單檔上限 25 MB，檔案太大；請改用 AssemblyAI。');
   const diar = prov === 'oai-diar';
   for (let i = 0; i < parts.length; i++) {
     setProg('refine', (i / parts.length) * 95, `OpenAI 辨識分段 ${i+1}/${parts.length}…`);
     const tryOnce = async (extras) => {
-      const fd = new FormData(); fd.append('file', parts[i].blob, fname(parts[i].blob));
+      const fd = new FormData(); fd.append('file', parts[i].blob, blobName(parts[i].blob));
       fd.append('model', diar ? 'gpt-4o-transcribe-diarize' : 'gpt-transcribe');
       if (diar) { fd.append('response_format', 'diarized_json'); fd.append('chunking_strategy', 'auto'); }
       else { fd.append('response_format', 'json'); }
@@ -691,34 +715,46 @@ Markdown 表格三欄：事項｜負責方｜期限。逐字稿中沒有明確�
 - 逐字稿聽錯的明顯錯字可依上下文修正，但語意不確定時保留原文並加註（原文如此）
 - 只輸出報告本文，從「## 一、會議摘要」開始，不要前言、不要結語`;
 
-let reportMd = '';
+let reportMd = '', reportNote = '';
 async function runReport() {
   const tx = $('pasteTx').value.trim() || transcriptText();
   if (!tx) { alert('沒有逐字稿。'); return; }
   const prov = $('reportProvider').value, model = $('reportModel').value.trim();
-  $('btnReport').disabled = true; setProg('report', 30, `${model} 撰寫中…（兩小時會議約 1 到 2 分鐘）`);
+  $('btnReport').disabled = true;
   const user = `會議名稱：${$('mtgTitle').value || '（未填）'}\n日期：${$('mtgDate').value}\n\n逐字稿：\n${tx}`;
-  try {
-    let out = '';
-    if (prov === 'anthropic') {
-      if (!key.anthropic()) throw new Error('請先填 Anthropic Key');
+  const DEFAULT_MODEL = { anthropic:'claude-sonnet-5-5', gemini:'gemini-4-argon', openai:'gpt-5' };
+  const writers = {
+    anthropic: async m => {
       const r = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{ 'x-api-key': key.anthropic(), 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true', 'Content-Type':'application/json' },
-        body: JSON.stringify({ model, max_tokens: 8000, system: REPORT_SYSTEM, messages:[{ role:'user', content:user }] }) });
+        body: JSON.stringify({ model:m, max_tokens: 16000, system: REPORT_SYSTEM, messages:[{ role:'user', content:user }] }) });
       const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || r.status);
-      out = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
-    } else if (prov === 'gemini') {
-      out = await geminiGenerate(model, REPORT_SYSTEM, user, 8000);
-    } else {
-      if (!key.openai()) throw new Error('請先填 OpenAI Key');
+      return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+    },
+    gemini: m => geminiGenerate(m, REPORT_SYSTEM, user, 16000),
+    openai: async m => {
       const r = await fetch('https://api.openai.com/v1/chat/completions', { method:'POST', headers:{ Authorization:'Bearer ' + key.openai(), 'Content-Type':'application/json' },
-        body: JSON.stringify({ model, max_completion_tokens: 8000, messages:[{ role:'system', content:REPORT_SYSTEM }, { role:'user', content:user }] }) });
+        body: JSON.stringify({ model:m, max_completion_tokens: 16000, messages:[{ role:'system', content:REPORT_SYSTEM }, { role:'user', content:user }] }) });
       const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || r.status);
-      out = j.choices?.[0]?.message?.content || '';
+      return j.choices?.[0]?.message?.content || '';
+    },
+  };
+  // 先用選定的那家；失敗（沒金鑰、額度用完、模型名錯）就依序換其他有金鑰的
+  const order = [prov, ...['anthropic', 'openai', 'gemini'].filter(x => x !== prov)].filter(x => key[x]());
+  try {
+    if (!order.length) throw new Error('請先在設定填 Anthropic、OpenAI 或 Gemini 任一把金鑰');
+    let out = '', used = ''; const errs = [];
+    for (const pv of order) {
+      const m = pv === prov ? model : DEFAULT_MODEL[pv];
+      setProg('report', 30, `${m} 撰寫中…（兩小時會議約 1 到 2 分鐘）` + (errs.length ? '　前一家失敗，已改道' : ''));
+      try { out = ((await writers[pv](m)) || '').trim(); if (!out) throw new Error('模型回傳空白'); used = m; break; }
+      catch (e) { dbg('report fail', pv, m, e.message); errs.push(`${m}：${e.message}`); }
     }
+    if (!out) throw new Error(errs.join('；'));
+    reportNote = errs.length ? `（${errs[0].slice(0, 70)} → 改用 ${used}）` : `（${used}）`;
     reportMd = `# ${$('mtgTitle').value || '會議報告'}\n\n日期：${$('mtgDate').value}\n\n` + tw(out.trim()) + '\n';
     $('report').innerHTML = mdToHtml(reportMd); $('report').classList.add('show');
     $('btnDlMd').disabled = false; $('btnDlDocx').disabled = false;
-    setProg('report', 100, '完成'); $('report').scrollIntoView({ behavior:'smooth', block:'start' });
+    setProg('report', 100, '完成 ' + reportNote); $('report').scrollIntoView({ behavior:'smooth', block:'start' });
   } catch (e) { dbg('report fail', e.message); setProg('report', 0, '失敗：' + e.message); alert('報告產出失敗：' + e.message); }
   $('btnReport').disabled = false;
 }
